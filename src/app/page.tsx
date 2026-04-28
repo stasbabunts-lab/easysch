@@ -1,65 +1,293 @@
-import Image from "next/image";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { APP_NAME } from "@/lib/labels";
+import {
+  CalendarDays, Bell, CreditCard, Users, MessageCircle,
+  ArrowRight, Check, Layers, Smartphone, Clock, BarChart3,
+} from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  if (session) redirect("/dashboard");
+  // Not logged in — show landing page below
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-background text-foreground">
+
+      {/* ── Nav ── */}
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-5 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+              <Layers className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="font-bold text-[15px] tracking-tight">{APP_NAME}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Увійти
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
             >
-              Learning
-            </a>{" "}
-            center.
+              Почати безкоштовно
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Hero ── */}
+      <section className="max-w-5xl mx-auto px-5 pt-20 pb-16 text-center">
+        <div className="inline-flex items-center gap-2 text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full mb-6">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+          14 днів безкоштовно — без картки
+        </div>
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
+          Розклад і оплати<br className="hidden sm:block" />
+          <span className="text-primary"> без зайвих клопотів</span>
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+          Для репетиторів, тренерів, коучів та всіх, хто працює на себе.
+          Ведіть клієнтів, відстежуйте оплати та отримуйте повідомлення у Telegram —
+          все в одному місці.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-medium px-6 py-3 rounded-xl text-base hover:bg-primary/90 transition-colors w-full sm:w-auto justify-center"
+          >
+            Спробувати безкоштовно
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 border border-border text-foreground font-medium px-6 py-3 rounded-xl text-base hover:bg-muted/50 transition-colors w-full sm:w-auto justify-center"
+          >
+            Вже є акаунт
+          </Link>
+        </div>
+        <p className="text-xs text-muted-foreground mt-4">
+          Реєстрація за 30 секунд. Жодної прив&apos;язки картки.
+        </p>
+      </section>
+
+      {/* ── Features grid ── */}
+      <section className="max-w-5xl mx-auto px-5 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
+            Все що потрібно — і нічого зайвого
+          </h2>
+          <p className="text-muted-foreground">
+            Зроблено для тих, хто цінує час і хоче витрачати його на роботу, а не на адміністрування
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              icon: CalendarDays,
+              color: "text-blue-600",
+              bg: "bg-blue-50",
+              title: "Розклад під контролем",
+              desc: "Створюйте разові та щотижневі заняття. Клієнт бачить ваш вільний час за особистим посиланням — без реєстрації.",
+            },
+            {
+              icon: MessageCircle,
+              color: "text-[#2AABEE]",
+              bg: "bg-sky-50",
+              title: "Повідомлення в Telegram",
+              desc: "Ви та ваші клієнти отримують нагадування про заняття прямо в Telegram. Нічого не пропустять — навіть без додатку.",
+            },
+            {
+              icon: CreditCard,
+              color: "text-emerald-600",
+              bg: "bg-emerald-50",
+              title: "Оплати без плутанини",
+              desc: "Клієнт просто переказує гроші — система сама розуміє від кого прийшло. Жодних коментарів, дзвінків і ручних позначок.",
+            },
+            {
+              icon: Smartphone,
+              color: "text-violet-600",
+              bg: "bg-violet-50",
+              title: "Особиста сторінка розкладу",
+              desc: "Дайте клієнту посилання вигляду easy-sch.com/ваш-код — він одразу бачить коли ви вільні. Жодної реєстрації з його боку.",
+            },
+            {
+              icon: Bell,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              title: "Нагадування про оплату",
+              desc: "Після заняття клієнт автоматично отримує реквізити в Telegram. Делікатно і без незручних розмов.",
+            },
+            {
+              icon: BarChart3,
+              color: "text-rose-600",
+              bg: "bg-rose-50",
+              title: "Баланс по кожному клієнту",
+              desc: "Ви завжди бачите хто заплатив, хто винен і на скільки занять. Один екран — повна картина.",
+            },
+          ].map(({ icon: Icon, color, bg, title, desc }) => (
+            <div
+              key={title}
+              className="rounded-2xl border border-border/50 bg-card p-6 space-y-3 hover:shadow-sm transition-shadow"
+            >
+              <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center`}>
+                <Icon className={`h-5 w-5 ${color}`} />
+              </div>
+              <h3 className="font-semibold text-[15px]">{title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+            </div>
+          ))}
         </div>
-      </main>
+      </section>
+
+      {/* ── Who it's for ── */}
+      <section className="bg-muted/30 border-y border-border/50 py-16">
+        <div className="max-w-5xl mx-auto px-5">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
+              Кому підходить {APP_NAME}
+            </h2>
+            <p className="text-muted-foreground">Якщо ви працюєте один на один з клієнтами — це для вас</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {[
+              "Репетитори",
+              "Викладачі мов",
+              "Персональні тренери",
+              "Психологи",
+              "Коучі",
+              "Логопеди",
+              "Викладачі музики",
+              "Всі, хто веде запис",
+            ].map((item) => (
+              <div
+                key={item}
+                className="flex items-center gap-2 bg-background rounded-xl border border-border/50 px-4 py-3 text-sm font-medium"
+              >
+                <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How it works ── */}
+      <section className="max-w-5xl mx-auto px-5 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
+            Як це працює
+          </h2>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-3">
+          {[
+            {
+              step: "1",
+              icon: Users,
+              title: "Додайте клієнта",
+              desc: "Створіть профіль клієнта. Надішліть йому особистий код — він прив'яже його в Telegram-боті.",
+            },
+            {
+              step: "2",
+              icon: CalendarDays,
+              title: "Складіть розклад",
+              desc: "Додайте заняття разово або щотижнево. Клієнт бачить вільні слоти за вашим посиланням.",
+            },
+            {
+              step: "3",
+              icon: CreditCard,
+              title: "Оплата надходить сама",
+              desc: "Коли клієнт переказує гроші, система автоматично зараховує оплату і повідомляє вас обох.",
+            },
+          ].map(({ step, icon: Icon, title, desc }) => (
+            <div key={step} className="relative text-center space-y-4">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center relative">
+                  <Icon className="h-6 w-6 text-primary" />
+                  <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                    {step}
+                  </span>
+                </div>
+                <h3 className="font-semibold">{title}</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Telegram highlight ── */}
+      <section className="max-w-5xl mx-auto px-5 pb-16">
+        <div className="rounded-2xl bg-gradient-to-br from-[#2AABEE]/10 to-primary/5 border border-[#2AABEE]/20 p-8 sm:p-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            <div className="h-14 w-14 rounded-2xl bg-[#2AABEE] flex items-center justify-center shrink-0">
+              <MessageCircle className="h-7 w-7 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold mb-2">Telegram — замість окремого додатку</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Ви та ваші клієнти отримуєте нагадування про заняття прямо в Telegram.
+                Клієнт дізнається про оплату там же — вам не потрібно нічого нагадувати вручну.
+                Все відбувається автоматично.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 grid sm:grid-cols-3 gap-3">
+            {[
+              { icon: Clock, text: "Нагадування за годину до заняття" },
+              { icon: CreditCard, text: "Реквізити після кожного заняття" },
+              { icon: Check, text: "Підтвердження коли оплата отримана" },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2.5 bg-white/60 rounded-xl px-4 py-3 text-sm font-medium border border-[#2AABEE]/10">
+                <Icon className="h-4 w-4 text-[#2AABEE] shrink-0" />
+                {text}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="bg-sidebar py-20">
+        <div className="max-w-2xl mx-auto px-5 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+            Почніть безкоштовно прямо зараз
+          </h2>
+          <p className="text-white/60 mb-8 leading-relaxed">
+            14 днів без обмежень. Жодної прив&apos;язки картки.<br />
+            Після пробного періоду — зв&apos;яжіться з нами для продовження.
+          </p>
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 bg-primary text-white font-semibold px-8 py-3.5 rounded-xl text-base hover:bg-primary/90 transition-colors"
+          >
+            Зареєструватися
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <p className="text-white/30 text-xs mt-4">Реєстрація займає 30 секунд</p>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="border-t border-border/50 py-6">
+        <div className="max-w-5xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded bg-primary flex items-center justify-center">
+              <Layers className="h-2.5 w-2.5 text-white" />
+            </div>
+            <span className="font-medium">{APP_NAME}</span>
+          </div>
+          <p>© 2025 {APP_NAME}. Для тих, хто працює на себе.</p>
+          <Link href="/login" className="hover:text-foreground transition-colors">Увійти</Link>
+        </div>
+      </footer>
+
     </div>
   );
 }

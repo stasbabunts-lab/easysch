@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Teacher {
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  passwordHash           String
+  name                   String
+  code                   String    @unique
+  timezone               String    @default("Europe/Moscow")
+  lastPolledAt           DateTime?
+  createdAt              DateTime  @default(now())
+  teacherReminderMinutes String    @default("60")
+  studentReminderMinutes String    @default("60")
+  telegramChatId         String?
+  telegramUsername       String?   // @username for public "write" button
+  phone                  String?   // optional phone for public "call" button
+  paymentDetails         String?   // free-text: card number, IBAN, phone for Pay, etc.
+  subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
+
+  slots        AvailabilitySlot[]
+  students     Student[]
+  lessons      Lesson[]
+  payments     Payment[]
+  bankAccounts BankAccount[]
+}
+
+model BankAccount {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  bankType  String   // "monobank" | "privatbank" | "creditagricole" | "mock"
+  label     String   // user label: "Mono картка", "Приват для учнів"
+  creds     String   // JSON credentials (never returned to client)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AvailabilitySlot {
+  id               String   @id @default(cuid())
+  teacherId        String
+  teacher          Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  date             String   // "YYYY-MM-DD" — конкретная дата события
+  startTime        String   // "HH:MM"
+  endTime          String   // "HH:MM"
+  durationMin      Int      @default(60)
+  isRecurring      Boolean  @default(false)
+  recurringGroupId String?  // общий UUID для серии повторяющихся событий
+  isActive         Boolean  @default(true)
+  studentId        String?
+  student          Student? @relation(fields: [studentId], references: [id])
+
+  lessons Lesson[]
+}
+
+model Student {
+  id             String   @id @default(cuid())
+  teacherId      String
+  teacher        Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name           String
+  code           String   @unique
+  telegramId     String?
+  telegramHandle String?
+  lessonPrice              Int
+  paymentOffset            Int
+  balanceAdjustmentKopecks Int      @default(0) // manual correction to computed balance
+  notes                    String?
+  createdAt      DateTime @default(now())
+
+  lessons         Lesson[]
+  payments        Payment[]
+  paymentRequests PaymentRequest[]
+  slots           AvailabilitySlot[]
+}
+
+model Lesson {
+  id                  String            @id @default(cuid())
+  teacherId           String
+  teacher             Teacher           @relation(fields: [teacherId], references: [id])
+  studentId           String
+  student             Student           @relation(fields: [studentId], references: [id])
+  slotId              String?
+  slot                AvailabilitySlot? @relation(fields: [slotId], references: [id])
+  scheduledAt         DateTime
+  durationMin         Int               @default(60)
+  status              LessonStatus      @default(SCHEDULED)
+  notes               String?
+  reminderSent        Boolean           @default(false)
+  reminderSentTeacher Boolean           @default(false)
+  paymentReminderSent Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+
+  payment Payment?
+}
+
+enum LessonStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model PaymentRequest {
+  id          String    @id @default(cuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id])
+  amountBase  Int
+  amountTotal Int
+  description String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  fulfilledBy Payment?
+}
+
+model Payment {
+  id               String          @id @default(cuid())
+  teacherId        String
+  teacher          Teacher         @relation(fields: [teacherId], references: [id])
+  studentId        String?
+  student          Student?        @relation(fields: [studentId], references: [id])
+  lessonId         String?         @unique
+  lesson           Lesson?         @relation(fields: [lessonId], references: [id])
+  paymentRequestId String?         @unique
+  paymentRequest   PaymentRequest? @relation(fields: [paymentRequestId], references: [id])
+  amountReceived   Int
+  bankTxId         String?         @unique
+  matchedAt        DateTime?
+  confirmedAt      DateTime        @default(now())
+  source           String          @default("bank")
+  notes            String?
+  isIgnored        Boolean         @default(false) // excluded from balance calculations
+}

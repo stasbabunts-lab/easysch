@@ -1,0 +1,256 @@
+import { prisma } from "./prisma";
+import { getBankAdapter } from "./bank";
+import { MockBankAdapter } from "./bank/mock-adapter";
+import { extendExpiringSeries } from "./recurring";
+import {
+  sendPaymentConfirmation,
+  sendTeacherPaymentNotification,
+  sendPostLessonPaymentReminder,
+  sendStudentLessonReminder,
+  sendTeacherLessonReminder,
+} from "./bot/reminders";
+
+export async function pollPayments(teacherId: string): Promise<number> {
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      lastPolledAt: true,
+      teacherReminderMinutes: true,
+      studentReminderMinutes: true,
+      telegramChatId: true,
+      name: true,
+      paymentDetails: true,
+    },
+  });
+  if (!teacher) return 0;
+
+  const since = teacher.lastPolledAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // ── Payment matching — all active bank accounts ───────────────────
+  const bankAccounts = await prisma.bankAccount.findMany({
+    where: { teacherId, isActive: true },
+  });
+
+  // If no real bank accounts configured, fall back to mock (dev mode)
+  const adapters =
+    bankAccounts.length > 0
+      ? bankAccounts.map((acc) => {
+          try {
+            return getBankAdapter(acc.bankType, acc.creds);
+          } catch {
+            return null; // skip mis-configured accounts silently
+          }
+        }).filter(Boolean)
+      : [new MockBankAdapter()];
+
+  // Collect all transactions from all adapters, dedup by id
+  const seen = new Set<string>();
+  const allTransactions = [];
+  for (const adapter of adapters) {
+    try {
+      const txs = await adapter!.getIncomingTransactions(since);
+      for (const tx of txs) {
+        if (!seen.has(tx.id)) {
+          seen.add(tx.id);
+          allTransactions.push(tx);
+        }
+      }
+    } catch {
+      // One failing adapter should not block others
+    }
+  }
+
+  let matched = 0;
+  for (const tx of allTransactions) {
+    const exists = await prisma.payment.findUnique({ where: { bankTxId: tx.id } });
+    if (exists) continue;
+
+    const request = await prisma.paymentRequest.findFirst({
+      where: { amountTotal: tx.amount, fulfilledBy: null, student: { teacherId } },
+      include: { student: true },
+    });
+
+    if (request) {
+      await prisma.payment.create({
+        data: {
+          teacherId,
+          studentId: request.studentId,
+          paymentRequestId: request.id,
+          amountReceived: tx.amount,
+          bankTxId: tx.id,
+          matchedAt: tx.receivedAt,
+          source: "bank",
+        },
+      });
+      matched++;
+
+      if (request.student.telegramId) {
+        await sendPaymentConfirmation(
+          request.student.telegramId,
+          tx.amount,
+          request.student.name
+        ).catch(() => null);
+      }
+
+      if (teacher.telegramChatId) {
+        await sendTeacherPaymentNotification(
+          teacher.telegramChatId,
+          tx.amount,
+          request.student.name
+        ).catch(() => null);
+      }
+    }
+  }
+
+  // ── Lesson reminders ──────────────────────────────────────────────
+  const teacherWindowsMin = parseMinutes(teacher.teacherReminderMinutes);
+  const studentWindowsMin = parseMinutes(teacher.studentReminderMinutes);
+  const now = Date.now();
+
+  const maxWindowMs = Math.max(...teacherWindowsMin, ...studentWindowsMin, 60) * 60 * 1000;
+  const windowEnd = new Date(now + maxWindowMs + 10 * 60 * 1000);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const upcomingSlots = await prisma.availabilitySlot.findMany({
+    where: {
+      teacherId,
+      isActive: true,
+      studentId: { not: null },
+      date: { gte: today, lte: windowEnd.toISOString().slice(0, 10) },
+    },
+    include: { student: true },
+  });
+
+  for (const slot of upcomingSlots) {
+    if (!slot.student) continue;
+
+    const scheduledAt = new Date(`${slot.date}T${slot.startTime}:00`);
+    const msUntil = scheduledAt.getTime() - now;
+    if (msUntil < 0) continue;
+
+    const lesson = await ensureLesson(slot.id, teacherId, slot.student.id, scheduledAt, slot.durationMin);
+
+    if (!lesson.reminderSent && slot.student.telegramId) {
+      for (const windowMin of studentWindowsMin) {
+        const windowMs = windowMin * 60 * 1000;
+        if (msUntil <= windowMs + 5 * 60 * 1000 && msUntil >= windowMs - 5 * 60 * 1000) {
+          await sendStudentLessonReminder(
+            slot.student.telegramId,
+            scheduledAt,
+            windowMin,
+            teacher.name,
+            slot.isRecurring
+          ).catch(() => null);
+          await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
+          break;
+        }
+      }
+    }
+
+    if (!lesson.reminderSentTeacher && teacher.telegramChatId) {
+      for (const windowMin of teacherWindowsMin) {
+        const windowMs = windowMin * 60 * 1000;
+        if (msUntil <= windowMs + 5 * 60 * 1000 && msUntil >= windowMs - 5 * 60 * 1000) {
+          await sendTeacherLessonReminder(
+            teacher.telegramChatId,
+            scheduledAt,
+            windowMin,
+            slot.student.name,
+            slot.isRecurring
+          ).catch(() => null);
+          await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSentTeacher: true } });
+          break;
+        }
+      }
+    }
+  }
+
+  // ── Post-lesson payment reminder ──────────────────────────────────────
+  // Send payment details to student after lesson ends (if teacher has paymentDetails set)
+  if (teacher.paymentDetails) {
+    const threeHoursAgo = new Date(now - 3 * 60 * 60 * 1000);
+
+    const justFinishedSlots = await prisma.availabilitySlot.findMany({
+      where: {
+        teacherId,
+        isActive: true,
+        studentId: { not: null },
+        // Slot date is today or yesterday to keep query tight
+        date: { gte: new Date(now - 24 * 60 * 60 * 1000).toISOString().slice(0, 10), lte: today },
+      },
+      include: { student: true, lessons: { where: { paymentReminderSent: false } } },
+    });
+
+    for (const slot of justFinishedSlots) {
+      if (!slot.student?.telegramId) continue;
+
+      const slotEnd = new Date(`${slot.date}T${slot.endTime}:00`);
+      // Only slots that ended in the last 3 hours and after the last poll
+      if (slotEnd.getTime() > now || slotEnd.getTime() < threeHoursAgo.getTime()) continue;
+
+      const lesson = slot.lessons[0];
+      if (!lesson) continue; // no lesson record yet
+
+      // Find latest unfulfilled payment request for this student
+      const request = await prisma.paymentRequest.findFirst({
+        where: { studentId: slot.student.id, fulfilledBy: null },
+        orderBy: { createdAt: "desc" },
+      });
+
+      await sendPostLessonPaymentReminder(
+        slot.student.telegramId,
+        teacher.paymentDetails,
+        request?.amountTotal,
+        request?.description
+      ).catch(() => null);
+
+      await prisma.lesson.update({
+        where: { id: lesson.id },
+        data: { paymentReminderSent: true },
+      });
+    }
+  }
+
+  // ── Auto-extend recurring series ──────────────────────────────────────
+  await extendExpiringSeries(teacherId);
+
+  await prisma.teacher.update({ where: { id: teacherId }, data: { lastPolledAt: new Date() } });
+  return matched;
+}
+
+function parseMinutes(raw: string): number[] {
+  return raw
+    .split(",")
+    .map((v) => parseInt(v.trim(), 10))
+    .filter((v) => !isNaN(v) && v > 0)
+    .sort((a, b) => b - a);
+}
+
+async function ensureLesson(
+  slotId: string,
+  teacherId: string,
+  studentId: string,
+  scheduledAt: Date,
+  durationMin: number
+) {
+  const startOfDay = new Date(scheduledAt);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(scheduledAt);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  let lesson = await prisma.lesson.findFirst({
+    where: {
+      slotId,
+      scheduledAt: { gte: startOfDay, lte: endOfDay },
+      status: { not: "CANCELLED" },
+    },
+  });
+
+  if (!lesson) {
+    lesson = await prisma.lesson.create({
+      data: { teacherId, studentId, slotId, scheduledAt, durationMin },
+    });
+  }
+  return lesson;
+}
+
