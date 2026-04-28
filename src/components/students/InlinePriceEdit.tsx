@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil, Check, X } from "lucide-react";
-import { formatAmount } from "@/lib/payment-offset";
+import { formatAmount } from "@/lib/format";
 
 interface InlinePriceEditProps {
   studentId: string;

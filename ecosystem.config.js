@@ -4,7 +4,7 @@ module.exports = {
       name: "easysch",
       script: "node_modules/.bin/next",
       args: "start",
-      cwd: "/var/www/easysch",
+      cwd: "/home/stas/apps/easysch",
       instances: 1,
       autorestart: true,
       watch: false,

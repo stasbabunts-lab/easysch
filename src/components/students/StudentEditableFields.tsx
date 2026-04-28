@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, X, Pencil, StickyNote } from "lucide-react";
-import { formatAmount } from "@/lib/payment-offset";
+import { formatAmount } from "@/lib/format";
 
 interface Props {
   studentId: string;

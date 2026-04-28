@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatAmount } from "@/lib/payment-offset";
+import { formatAmount } from "@/lib/format";
 import { RefreshCw, Zap, Users, ArrowDownLeft, Check, X, Ban, Undo2 } from "lucide-react";
 
 interface ActiveClient {

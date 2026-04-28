@@ -1,9 +1,22 @@
 import { Bot } from "grammy";
 import { prisma } from "@/lib/prisma";
-import { formatAmount } from "@/lib/payment-offset";
+import { formatAmount } from "@/lib/format";
 
-const token = process.env.TELEGRAM_BOT_TOKEN ?? "";
-export const bot = new Bot(token);
+const token = process.env.TELEGRAM_BOT_TOKEN;
+
+// Lazy singleton — bot is only created when token is present
+let _bot: Bot | null = null;
+function getBot(): Bot {
+  if (!_bot) {
+    if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not set");
+    _bot = new Bot(token);
+    registerHandlers(_bot);
+  }
+  return _bot;
+}
+export { getBot as bot };
+
+function registerHandlers(bot: Bot) {
 
 bot.command("start", async (ctx) => {
   const args = ctx.match?.trim().toUpperCase();
@@ -451,11 +464,14 @@ bot.command("unlink", async (ctx) => {
   );
 });
 
+} // end registerHandlers
+
 export async function registerWebhook() {
   const webhookUrl = process.env.WEBHOOK_URL;
   const secret = process.env.BOT_WEBHOOK_SECRET;
-  if (!webhookUrl || !token) return;
-  await bot.api.setWebhook(`${webhookUrl}/api/bot`, {
+  if (!webhookUrl || !process.env.TELEGRAM_BOT_TOKEN) return;
+  const b = getBot();
+  await b.api.setWebhook(`${webhookUrl}/api/bot`, {
     secret_token: secret,
     drop_pending_updates: true,
   });

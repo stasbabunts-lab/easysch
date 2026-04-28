@@ -2,7 +2,7 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const adapter = new PrismaLibSql({ url: "file:./dev.db" });
+const adapter = new PrismaLibSql({ url: process.env.DATABASE_URL ?? "file:./prisma/dev.db" });
 const prisma = new PrismaClient({ adapter });
 
 function isoDate(d: Date) {
@@ -10,7 +10,6 @@ function isoDate(d: Date) {
 }
 
 function nextWeekday(dow: number): Date {
-  // Returns next occurrence of dayOfWeek (1=Mon..7=Sun) from today
   const d = new Date();
   const diff = ((dow - d.getDay()) + 7) % 7 || 7;
   d.setDate(d.getDate() + diff);
@@ -41,11 +40,11 @@ async function main() {
       create: {
         id: "seed-student-1",
         teacherId: teacher.id,
-        name: "Иван Петров",
+        name: "Іван Петров",
         code: "IVAN01",
         lessonPrice: 150000,
         paymentOffset: 1,
-        notes: "Подготовка к IELTS",
+        notes: "Підготовка до IELTS",
       },
     }),
     prisma.student.upsert({
@@ -54,16 +53,15 @@ async function main() {
       create: {
         id: "seed-student-2",
         teacherId: teacher.id,
-        name: "Мария Козлова",
+        name: "Марія Козлова",
         code: "MARIA2",
         lessonPrice: 120000,
         paymentOffset: 2,
-        notes: "Разговорный клуб",
+        notes: "Розмовний клуб",
       },
     }),
   ]);
 
-  // Create recurring weekly slots (Mon 10:00 with Ivan, Wed 10:00 with Maria, Fri 12:00 free)
   await prisma.availabilitySlot.deleteMany({ where: { teacherId: teacher.id } });
 
   const groupA = "group-mon-1000";
@@ -101,7 +99,6 @@ async function main() {
     });
   }
 
-  // One-time slot next Thursday
   const thu = nextWeekday(4);
   slotRows.push({
     teacherId: teacher.id, date: isoDate(thu), startTime: "15:00", endTime: "16:00",
@@ -114,9 +111,6 @@ async function main() {
   console.log("✅ Seed complete");
   console.log("   Login: demo@example.com / password123");
   console.log("   Teacher code: DEMO01");
-  console.log("   Student codes: IVAN01, MARIA2");
-  console.log("   Public schedule: http://localhost:3000/s/DEMO01");
-  console.log(`   Slots created: ${slotRows.length}`);
 }
 
 main()

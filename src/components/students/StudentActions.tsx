@@ -14,7 +14,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2, CreditCard, CalendarPlus } from "lucide-react";
-import { formatAmount } from "@/lib/payment-offset";
+import { formatAmount } from "@/lib/format";
 
 interface Student {
   id: string;
