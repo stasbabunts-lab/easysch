@@ -90,7 +90,7 @@ export function ScheduleManager({ students }: Props) {
   const [newSlot, setNewSlot] = useState(() => {
     const startTime = "10:00";
     const durationMin = 60;
-    return { date: isoDate(new Date()), startTime, endTime: computeEndTime(startTime, durationMin), durationMin, isRecurring: false, studentId: "" };
+    return { date: isoDate(new Date()), startTime, endTime: computeEndTime(startTime, durationMin), durationMin, durationStr: "60", isRecurring: false, studentId: "" };
   });
   const [adding, setAdding] = useState(false);
 
@@ -114,7 +114,7 @@ export function ScheduleManager({ students }: Props) {
   const durationRef = useWheelRef((e) => {
     setNewSlot((s) => {
       const newDur = Math.max(10, s.durationMin + (e.deltaY < 0 ? 10 : -10));
-      return { ...s, durationMin: newDur, endTime: computeEndTime(s.startTime, newDur) };
+      return { ...s, durationMin: newDur, durationStr: String(newDur), endTime: computeEndTime(s.startTime, newDur) };
     });
   });
 
@@ -445,13 +445,23 @@ export function ScheduleManager({ students }: Props) {
                 <Label className="text-xs">Хв.</Label>
                 <Input
                   ref={durationRef}
-                  type="number"
-                  min={10}
-                  step={10}
-                  value={newSlot.durationMin}
-                  onChange={(e) => setNewSlot((s) => {
-                    const newDur = Math.max(10, Number(e.target.value));
-                    return { ...s, durationMin: newDur, endTime: computeEndTime(s.startTime, newDur) };
+                  type="text"
+                  inputMode="numeric"
+                  value={newSlot.durationStr}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                    setNewSlot((s) => {
+                      const parsed = parseInt(raw, 10);
+                      if (!isNaN(parsed) && parsed >= 10) {
+                        return { ...s, durationStr: raw, durationMin: parsed, endTime: computeEndTime(s.startTime, parsed) };
+                      }
+                      return { ...s, durationStr: raw };
+                    });
+                  }}
+                  onBlur={() => setNewSlot((s) => {
+                    const parsed = parseInt(s.durationStr, 10);
+                    const clamped = isNaN(parsed) || parsed < 10 ? 60 : parsed;
+                    return { ...s, durationMin: clamped, durationStr: String(clamped), endTime: computeEndTime(s.startTime, clamped) };
                   })}
                 />
               </div>
