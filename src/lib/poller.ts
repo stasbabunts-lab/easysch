@@ -9,6 +9,8 @@ import {
   sendStudentLessonReminder,
   sendTeacherLessonReminder,
 } from "./bot/reminders";
+import { logNotification } from "./bot/notification-log";
+import { formatAmount } from "./payment-offset";
 
 export async function pollPayments(teacherId: string): Promise<number> {
   const teacher = await prisma.teacher.findUnique({
@@ -20,6 +22,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
       telegramChatId: true,
       name: true,
       paymentDetails: true,
+      postLessonNote: true,
     },
   });
   if (!teacher) return 0;
@@ -60,45 +63,71 @@ export async function pollPayments(teacherId: string): Promise<number> {
     }
   }
 
+  // Pre-load all students for this teacher (for offset matching)
+  const teacherStudents = await prisma.student.findMany({
+    where: { teacherId },
+    select: { id: true, paymentOffset: true, telegramId: true, name: true },
+  });
+
   let matched = 0;
   for (const tx of allTransactions) {
     const exists = await prisma.payment.findUnique({ where: { bankTxId: tx.id } });
     if (exists) continue;
 
-    const request = await prisma.paymentRequest.findFirst({
-      where: { amountTotal: tx.amount, fulfilledBy: null, student: { teacherId } },
-      include: { student: true },
+    // Two-tier offset matching:
+    //   Small amounts < 1000 kopecks (< 10 UAH): use last 2 digits → % 100
+    //     e.g. 1.03 UAH = 103 kop → 103 % 100 = 3 → student 03
+    //   Large amounts ≥ 1000 kopecks (≥ 10 UAH): use last 3 digits → % 1000
+    //     e.g. 800.03 UAH → 80003 % 1000 = 3 → student 03
+    //     e.g. 801.03 UAH → 80103 % 1000 = 103 → student 103 (no conflict!)
+    const offsetValue = tx.amount < 1000
+      ? tx.amount % 100
+      : tx.amount % 1000;
+    if (offsetValue === 0) continue; // round amount — can't identify student
+
+    const student = teacherStudents.find((s) => s.paymentOffset === offsetValue);
+    if (!student) continue;
+
+    // Optionally link to oldest open PaymentRequest for tracking
+    const openRequest = await prisma.paymentRequest.findFirst({
+      where: { studentId: student.id, fulfilledBy: null },
+      orderBy: { createdAt: "asc" },
     });
 
-    if (request) {
-      await prisma.payment.create({
-        data: {
-          teacherId,
-          studentId: request.studentId,
-          paymentRequestId: request.id,
-          amountReceived: tx.amount,
-          bankTxId: tx.id,
-          matchedAt: tx.receivedAt,
-          source: "bank",
-        },
-      });
-      matched++;
+    await prisma.payment.create({
+      data: {
+        teacherId,
+        studentId: student.id,
+        paymentRequestId: openRequest?.id ?? null,
+        amountReceived: tx.amount,
+        bankTxId: tx.id,
+        matchedAt: tx.receivedAt,
+        source: "bank",
+      },
+    });
+    matched++;
 
-      if (request.student.telegramId) {
-        await sendPaymentConfirmation(
-          request.student.telegramId,
-          tx.amount,
-          request.student.name
-        ).catch(() => null);
-      }
+    if (student.telegramId) {
+      await sendPaymentConfirmation(
+        student.telegramId,
+        tx.amount,
+        student.name
+      ).catch(() => null);
+      await logNotification({
+        teacherId,
+        studentId: student.id,
+        studentName: student.name,
+        type: "payment_confirmed",
+        text: `Оплата ${formatAmount(tx.amount)} підтверджена`,
+      }).catch(() => null);
+    }
 
-      if (teacher.telegramChatId) {
-        await sendTeacherPaymentNotification(
-          teacher.telegramChatId,
-          tx.amount,
-          request.student.name
-        ).catch(() => null);
-      }
+    if (teacher.telegramChatId) {
+      await sendTeacherPaymentNotification(
+        teacher.telegramChatId,
+        tx.amount,
+        student.name
+      ).catch(() => null);
     }
   }
 
@@ -141,6 +170,13 @@ export async function pollPayments(teacherId: string): Promise<number> {
             teacher.name,
             slot.isRecurring
           ).catch(() => null);
+          await logNotification({
+            teacherId,
+            studentId: slot.student.id,
+            studentName: slot.student.name,
+            type: "lesson_reminder",
+            text: `Нагадування: заняття ${slot.date} о ${slot.startTime}`,
+          }).catch(() => null);
           await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
           break;
         }
@@ -183,6 +219,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
     for (const slot of justFinishedSlots) {
       if (!slot.student?.telegramId) continue;
+      if (!slot.student.sendPaymentReminder) continue; // respect per-student toggle
 
       const slotEnd = new Date(`${slot.date}T${slot.endTime}:00`);
       // Only slots that ended in the last 3 hours and after the last poll
@@ -199,10 +236,19 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
       await sendPostLessonPaymentReminder(
         slot.student.telegramId,
-        teacher.paymentDetails,
+        teacher.paymentDetails ?? "",
         request?.amountTotal,
-        request?.description
+        teacher.postLessonNote
       ).catch(() => null);
+      await logNotification({
+        teacherId,
+        studentId: slot.student.id,
+        studentName: slot.student.name,
+        type: "payment_reminder",
+        text: request?.amountTotal
+          ? `Нагадування про оплату після заняття: ${formatAmount(request.amountTotal)}`
+          : "Нагадування про оплату після заняття",
+      }).catch(() => null);
 
       await prisma.lesson.update({
         where: { id: lesson.id },

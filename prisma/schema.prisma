@@ -12,22 +12,28 @@ model Teacher {
   passwordHash           String
   name                   String
   code                   String    @unique
+  alias                  String?   @unique // custom public URL slug (lowercase a-z0-9-)
   timezone               String    @default("Europe/Moscow")
   lastPolledAt           DateTime?
   createdAt              DateTime  @default(now())
   teacherReminderMinutes String    @default("60")
   studentReminderMinutes String    @default("60")
   telegramChatId         String?
+  displayName            String?   // shown on public schedule page instead of name
+  paymentMinAmount       Int?      // min transaction to consider (kopecks), null = no limit
+  paymentMaxAmount       Int?      // max transaction to consider (kopecks), null = no limit
   telegramUsername       String?   // @username for public "write" button
   phone                  String?   // optional phone for public "call" button
   paymentDetails         String?   // free-text: card number, IBAN, phone for Pay, etc.
+  postLessonNote         String?   // optional 4th line in post-lesson payment reminder
   subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
 
-  slots        AvailabilitySlot[]
-  students     Student[]
-  lessons      Lesson[]
-  payments     Payment[]
-  bankAccounts BankAccount[]
+  slots             AvailabilitySlot[]
+  students          Student[]
+  lessons           Lesson[]
+  payments          Payment[]
+  bankAccounts      BankAccount[]
+  notificationLogs  NotificationLog[]
 }
 
 model BankAccount {
@@ -69,6 +75,7 @@ model Student {
   lessonPrice              Int
   paymentOffset            Int
   balanceAdjustmentKopecks Int      @default(0) // manual correction to computed balance
+  sendPaymentReminder      Boolean  @default(true) // send Telegram payment reminder after each lesson
   notes                    String?
   createdAt      DateTime @default(now())
 
@@ -115,6 +122,17 @@ model PaymentRequest {
   expiresAt   DateTime?
 
   fulfilledBy Payment?
+}
+
+model NotificationLog {
+  id          String   @id @default(cuid())
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  studentId   String?
+  studentName String
+  type        String   // "lesson_reminder" | "payment_reminder" | "payment_confirmed" | "payment_request"
+  text        String
+  sentAt      DateTime @default(now())
 }
 
 model Payment {
