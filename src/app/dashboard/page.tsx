@@ -217,7 +217,10 @@ export default async function DashboardPage() {
   const teacherId = session.user.id;
   const now = new Date();
 
-  const [teacher, upcomingLessons, studentCount, pendingPayments, recentPayments, recentNotifs] = await Promise.all([
+  const today = now.toISOString().slice(0, 10);
+  const currentTime = now.toISOString().slice(11, 16);
+
+  const [teacher, upcomingLessons, studentCount, studentsForDebt, recentPayments, recentNotifs] = await Promise.all([
     prisma.teacher.findUnique({
       where: { id: teacherId },
       select: { subscriptionExpiresAt: true },
@@ -229,9 +232,24 @@ export default async function DashboardPage() {
       take: 5,
     }),
     prisma.student.count({ where: { teacherId } }),
-    prisma.paymentRequest.aggregate({
-      where: { student: { teacherId }, fulfilledBy: null },
-      _sum: { amountBase: true },
+    prisma.student.findMany({
+      where: { teacherId },
+      select: {
+        lessonPrice: true,
+        paymentOffset: true,
+        balanceAdjustmentKopecks: true,
+        slots: {
+          where: {
+            isActive: true,
+            OR: [{ date: { lt: today } }, { date: today, startTime: { lte: currentTime } }],
+          },
+          select: { id: true },
+        },
+        payments: {
+          where: { isIgnored: false },
+          select: { amountReceived: true },
+        },
+      },
     }),
     prisma.payment.findMany({
       where: { teacherId },
@@ -245,6 +263,13 @@ export default async function DashboardPage() {
       take: 20,
     }),
   ]);
+
+  const totalDebt = studentsForDebt.reduce((sum, s) => {
+    const totalOwed = s.slots.length * s.lessonPrice;
+    const totalPaid = s.payments.reduce((p, pay) => p + pay.amountReceived - s.paymentOffset, 0);
+    const effectiveBalance = totalPaid - totalOwed + s.balanceAdjustmentKopecks;
+    return sum + (effectiveBalance < 0 ? -effectiveBalance : 0);
+  }, 0);
 
   const todayLessons = upcomingLessons.filter(
     (l) => l.scheduledAt.toDateString() === now.toDateString()
@@ -269,7 +294,7 @@ export default async function DashboardPage() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard label={LABELS.students} value={studentCount} icon={Users} color="text-violet-600" iconBg="bg-violet-50" />
         <StatCard label="Занять сьогодні" value={todayLessons} icon={CalendarDays} color="text-blue-600" iconBg="bg-blue-50" />
-        <StatCard label="Очікує оплат" value={formatAmount(pendingPayments._sum.amountBase ?? 0)} icon={CreditCard} color="text-amber-600" iconBg="bg-amber-50" />
+        <StatCard label="Очікує оплат" value={formatAmount(totalDebt)} icon={CreditCard} color="text-amber-600" iconBg="bg-amber-50" />
         <StatCard label="Найближчий клієнт" value={upcomingLessons[0]?.student.name.split(" ")[0] ?? "—"} icon={TrendingUp} color="text-emerald-600" iconBg="bg-emerald-50" />
       </div>
 
