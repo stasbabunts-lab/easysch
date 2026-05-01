@@ -54,3 +54,25 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(request, { status: 201 });
 }
+
+// DELETE /api/payments/request — cancel all open payment requests for a student
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { studentId } = await req.json();
+  if (!studentId) return NextResponse.json({ error: "studentId обязателен" }, { status: 400 });
+
+  // Verify student belongs to this teacher
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, teacherId: session.user.id },
+    select: { id: true },
+  });
+  if (!student) return NextResponse.json({ error: "Клиент не найден" }, { status: 404 });
+
+  await prisma.paymentRequest.deleteMany({
+    where: { studentId, fulfilledBy: null },
+  });
+
+  return NextResponse.json({ ok: true });
+}

@@ -249,6 +249,104 @@ function PriceCell({ client, onSaved }: { client: ActiveClient; onSaved: (update
   );
 }
 
+// ── Request cell ──────────────────────────────────────────────────────────────
+
+function RequestCell({ client, onSaved }: { client: ActiveClient; onSaved: (updated: ActiveClient) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit() {
+    setValue(client.openRequestTotal > 0 ? String(Math.round(client.openRequestTotal / 100)) : "");
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  function cancel() { setEditing(false); setValue(""); }
+
+  async function save() {
+    const amount = parseFloat(value.replace(",", "."));
+    const amountKopecks = isNaN(amount) || amount <= 0 ? 0 : Math.round(amount * 100);
+    setSaving(true);
+    try {
+      // Cancel all existing open requests
+      await fetch("/api/payments/request", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: client.id }),
+      });
+
+      if (amountKopecks > 0) {
+        const res = await fetch("/api/payments/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentId: client.id, amountBase: amount }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast.error(err.error ?? "Помилка створення запиту");
+          setSaving(false);
+          return;
+        }
+      }
+
+      onSaved({ ...client, openRequestCount: amountKopecks > 0 ? 1 : 0, openRequestTotal: amountKopecks });
+      setEditing(false);
+      setValue("");
+      toast.success(amountKopecks > 0 ? "Запит оновлено" : "Запити скасовано");
+    } catch {
+      toast.error("Помилка");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") cancel();
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="0"
+          className="w-24 h-7 text-right text-sm border border-primary rounded px-2 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+          disabled={saving}
+        />
+        <button onClick={save} disabled={saving} className="p-1 rounded text-emerald-600 hover:bg-emerald-50 transition-colors">
+          <Check className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={cancel} disabled={saving} className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button onClick={startEdit} className="w-full text-right group" title="Натисніть щоб змінити">
+      {client.openRequestCount > 0 ? (
+        <span className="font-semibold text-amber-600 tabular-nums group-hover:underline decoration-dashed underline-offset-2">
+          {formatAmountWhole(client.openRequestTotal)}
+          {client.openRequestCount > 1 && (
+            <span className="text-xs font-normal text-muted-foreground ml-1">×{client.openRequestCount}</span>
+          )}
+        </span>
+      ) : (
+        <span className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors">—</span>
+      )}
+    </button>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
@@ -517,14 +615,8 @@ export default function PaymentsPage() {
                         <BalanceCell client={c} side="debt" onSaved={updateClient} />
                       </div>
                       <div>
-                        <p className="mb-1">Запит</p>
-                        <div className="text-right">
-                          {c.openRequestCount > 0 ? (
-                            <span className="font-semibold text-amber-600">{formatAmount(c.openRequestTotal)}</span>
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </div>
+                        <p className="mb-1">Запит ✎</p>
+                        <RequestCell client={c} onSaved={updateClient} />
                       </div>
                     </div>
                   </div>
@@ -557,18 +649,7 @@ export default function PaymentsPage() {
                         <td className="px-4 py-3"><PriceCell client={c} onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><BalanceCell client={c} side="credit" onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><BalanceCell client={c} side="debt" onSaved={updateClient} /></td>
-                        <td className="px-4 py-3 text-right">
-                          {c.openRequestCount > 0 ? (
-                            <span className="font-semibold text-amber-600 tabular-nums">
-                              {formatAmount(c.openRequestTotal)}
-                              {c.openRequestCount > 1 && (
-                                <span className="text-xs font-normal text-muted-foreground ml-1">×{c.openRequestCount}</span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
+                        <td className="px-4 py-3"><RequestCell client={c} onSaved={updateClient} /></td>
                       </tr>
                     ))}
                   </tbody>
