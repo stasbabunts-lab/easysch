@@ -174,44 +174,38 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
     const lesson = await ensureLesson(slot.id, teacherId, slot.student.id, scheduledAt, slot.durationMin);
 
-    if (!lesson.reminderSent && slot.student.telegramId) {
-      for (const windowMin of studentWindowsMin) {
-        const windowMs = windowMin * 60 * 1000;
-        if (msUntil <= windowMs + 5 * 60 * 1000 && msUntil >= windowMs - 5 * 60 * 1000) {
-          await sendStudentLessonReminder(
-            slot.student.telegramId,
-            scheduledAt,
-            windowMin,
-            teacher.name,
-            slot.isRecurring
-          ).catch(() => null);
-          await logNotification({
-            teacherId,
-            studentId: slot.student.id,
-            studentName: slot.student.name,
-            type: "lesson_reminder",
-            text: `Нагадування: заняття ${slot.date} о ${slot.startTime}`,
-          }).catch(() => null);
-          await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
-          break;
-        }
+    if (!lesson.reminderSent && slot.student.telegramId && msUntil >= 5 * 60 * 1000) {
+      const bestWindow = [...studentWindowsMin].sort((a, b) => a - b).find((w) => msUntil <= w * 60 * 1000 + 5 * 60 * 1000);
+      if (bestWindow !== undefined) {
+        await sendStudentLessonReminder(
+          slot.student.telegramId,
+          scheduledAt,
+          bestWindow,
+          teacher.name,
+          slot.isRecurring
+        ).catch(() => null);
+        await logNotification({
+          teacherId,
+          studentId: slot.student.id,
+          studentName: slot.student.name,
+          type: "lesson_reminder",
+          text: `Нагадування: заняття ${slot.date} о ${slot.startTime}`,
+        }).catch(() => null);
+        await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
       }
     }
 
-    if (!lesson.reminderSentTeacher && teacher.telegramChatId) {
-      for (const windowMin of teacherWindowsMin) {
-        const windowMs = windowMin * 60 * 1000;
-        if (msUntil <= windowMs + 5 * 60 * 1000 && msUntil >= windowMs - 5 * 60 * 1000) {
-          await sendTeacherLessonReminder(
-            teacher.telegramChatId,
-            scheduledAt,
-            windowMin,
-            slot.student.name,
-            slot.isRecurring
-          ).catch(() => null);
-          await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSentTeacher: true } });
-          break;
-        }
+    if (!lesson.reminderSentTeacher && teacher.telegramChatId && msUntil >= 5 * 60 * 1000) {
+      const bestWindow = [...teacherWindowsMin].sort((a, b) => a - b).find((w) => msUntil <= w * 60 * 1000 + 5 * 60 * 1000);
+      if (bestWindow !== undefined) {
+        await sendTeacherLessonReminder(
+          teacher.telegramChatId,
+          scheduledAt,
+          bestWindow,
+          slot.student.name,
+          slot.isRecurring
+        ).catch(() => null);
+        await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSentTeacher: true } });
       }
     }
   }
@@ -237,52 +231,46 @@ export async function pollPayments(teacherId: string): Promise<number> {
     for (const { student } of slot.groupStudents) {
       const lesson = await ensureLesson(slot.id, teacherId, student.id, scheduledAt, slot.durationMin);
 
-      if (!lesson.reminderSent && student.telegramId) {
-        for (const windowMin of studentWindowsMin) {
-          const windowMs = windowMin * 60 * 1000;
-          if (msUntil <= windowMs + 5 * 60 * 1000 && msUntil >= windowMs - 5 * 60 * 1000) {
-            await sendStudentLessonReminder(
-              student.telegramId,
-              scheduledAt,
-              windowMin,
-              teacher.name,
-              slot.isRecurring
-            ).catch(() => null);
-            await logNotification({
-              teacherId,
-              studentId: student.id,
-              studentName: student.name,
-              type: "lesson_reminder",
-              text: `Нагадування: групове заняття ${slot.date} о ${slot.startTime}`,
-            }).catch(() => null);
-            await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
-            break;
-          }
+      if (!lesson.reminderSent && student.telegramId && msUntil >= 5 * 60 * 1000) {
+        const bestWindow = [...studentWindowsMin].sort((a, b) => a - b).find((w) => msUntil <= w * 60 * 1000 + 5 * 60 * 1000);
+        if (bestWindow !== undefined) {
+          await sendStudentLessonReminder(
+            student.telegramId,
+            scheduledAt,
+            bestWindow,
+            teacher.name,
+            slot.isRecurring
+          ).catch(() => null);
+          await logNotification({
+            teacherId,
+            studentId: student.id,
+            studentName: student.name,
+            type: "lesson_reminder",
+            text: `Нагадування: групове заняття ${slot.date} о ${slot.startTime}`,
+          }).catch(() => null);
+          await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
         }
       }
     }
 
-    if (teacher.telegramChatId) {
+    if (teacher.telegramChatId && msUntil >= 5 * 60 * 1000) {
       const anyLesson = await prisma.lesson.findFirst({
         where: { slotId: slot.id, reminderSentTeacher: false },
       });
       if (anyLesson) {
-        for (const windowMin of teacherWindowsMin) {
-          const windowMs = windowMin * 60 * 1000;
-          if (msUntil <= windowMs + 5 * 60 * 1000 && msUntil >= windowMs - 5 * 60 * 1000) {
-            await sendTeacherLessonReminder(
-              teacher.telegramChatId,
-              scheduledAt,
-              windowMin,
-              `Група: ${studentNames}`,
-              slot.isRecurring
-            ).catch(() => null);
-            await prisma.lesson.updateMany({
-              where: { slotId: slot.id },
-              data: { reminderSentTeacher: true },
-            });
-            break;
-          }
+        const bestWindow = [...teacherWindowsMin].sort((a, b) => a - b).find((w) => msUntil <= w * 60 * 1000 + 5 * 60 * 1000);
+        if (bestWindow !== undefined) {
+          await sendTeacherLessonReminder(
+            teacher.telegramChatId,
+            scheduledAt,
+            bestWindow,
+            `Група: ${studentNames}`,
+            slot.isRecurring
+          ).catch(() => null);
+          await prisma.lesson.updateMany({
+            where: { slotId: slot.id },
+            data: { reminderSentTeacher: true },
+          });
         }
       }
     }
