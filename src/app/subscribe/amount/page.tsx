@@ -23,7 +23,6 @@ export default function SubscribeAmountPage() {
       .then((r) => r.json())
       .then((data: SubSettings) => {
         setSettings(data);
-        setAmountStr(String(Math.round(data.priceKopecks / 100)));
       })
       .catch(() => {});
   }, []);
