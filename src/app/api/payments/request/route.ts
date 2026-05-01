@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
     include: { teacher: { select: { paymentDetails: true, postLessonNote: true } } },
   });
   if (!student) return NextResponse.json({ error: "Клиент не найден" }, { status: 404 });
+  if (!student.teacher.paymentDetails) {
+    return NextResponse.json({ error: "Спочатку заповніть реквізити для оплати в налаштуваннях" }, { status: 400 });
+  }
 
   const base = Math.round(Number(amountBase) * 100);
   const amountTotal = base + student.paymentOffset;
@@ -32,24 +35,22 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Notify student in Telegram if connected and teacher has payment details
-  if (student.telegramId && student.teacher.paymentDetails) {
+  // Notify student in Telegram if connected (paymentDetails already validated above)
+  if (student.telegramId) {
     await sendPaymentRequestNotification(
       student.telegramId,
-      student.teacher.paymentDetails,
+      student.teacher.paymentDetails!,
       amountTotal,
       student.teacher.postLessonNote,
     ).catch(() => null);
+    await logNotification({
+      teacherId: session.user.id,
+      studentId: studentId,
+      studentName: student.name,
+      type: "payment_request",
+      text: `Запит на оплату ${formatAmount(amountTotal)}`,
+    }).catch(() => null);
   }
-
-  // Always log payment request creation
-  await logNotification({
-    teacherId: session.user.id,
-    studentId: studentId,
-    studentName: student.name,
-    type: "payment_request",
-    text: `Запит на оплату ${formatAmount(amountTotal)}`,
-  }).catch(() => null);
 
   return NextResponse.json(request, { status: 201 });
 }

@@ -13,7 +13,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2, CreditCard, CalendarPlus } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, CreditCard, CalendarPlus, AlertCircle } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 
 interface Student {
@@ -24,7 +24,7 @@ interface Student {
   notes?: string | null;
 }
 
-export function StudentActions({ student }: { student: Student }) {
+export function StudentActions({ student, hasPaymentDetails }: { student: Student; hasPaymentDetails: boolean }) {
   const router = useRouter();
   const [payDialog, setPayDialog] = useState(false);
   const [lessonDialog, setLessonDialog] = useState(false);
@@ -121,8 +121,21 @@ export function StudentActions({ student }: { student: Student }) {
 
   return (
     <div className="flex gap-2 shrink-0">
-      <Button size="sm" variant="secondary" onClick={() => setPayDialog(true)}>
-        <CreditCard className="h-4 w-4 mr-2" /> Запросити оплату
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => {
+          if (!hasPaymentDetails) {
+            toast.error("Спочатку заповніть реквізити для оплати на сторінці «Оплати»");
+            return;
+          }
+          setPayDialog(true);
+        }}
+        title={!hasPaymentDetails ? "Спочатку заповніть реквізити для оплати" : undefined}
+      >
+        {!hasPaymentDetails && <AlertCircle className="h-4 w-4 mr-2 text-amber-500" />}
+        {hasPaymentDetails && <CreditCard className="h-4 w-4 mr-2" />}
+        Запросити оплату
       </Button>
       <Button size="sm" onClick={() => setLessonDialog(true)}>
         <CalendarPlus className="h-4 w-4 mr-2" /> Заняття

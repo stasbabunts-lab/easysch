@@ -21,17 +21,23 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   if (!session) return null;
   const { id } = await params;
 
-  const student = await prisma.student.findFirst({
-    where: { id, teacherId: session.user.id },
-    include: {
-      lessons: { orderBy: { scheduledAt: "desc" }, take: 20 },
-      payments: { orderBy: { confirmedAt: "desc" } },
-      paymentRequests: {
-        orderBy: { createdAt: "desc" },
-        include: { fulfilledBy: { select: { id: true } } },
+  const [student, teacher] = await Promise.all([
+    prisma.student.findFirst({
+      where: { id, teacherId: session.user.id },
+      include: {
+        lessons: { orderBy: { scheduledAt: "desc" }, take: 20 },
+        payments: { orderBy: { confirmedAt: "desc" } },
+        paymentRequests: {
+          orderBy: { createdAt: "desc" },
+          include: { fulfilledBy: { select: { id: true } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.teacher.findUnique({
+      where: { id: session.user.id },
+      select: { paymentDetails: true },
+    }),
+  ]);
 
   if (!student) notFound();
 
@@ -62,7 +68,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
         </div>
-        <StudentActions student={student} />
+        <StudentActions student={student} hasPaymentDetails={!!teacher?.paymentDetails} />
       </div>
 
       {/* Notes — full-width editable block */}
