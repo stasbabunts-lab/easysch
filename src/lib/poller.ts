@@ -66,7 +66,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
   // Pre-load all students for this teacher (for offset matching)
   const teacherStudents = await prisma.student.findMany({
     where: { teacherId },
-    select: { id: true, paymentOffset: true, telegramId: true, name: true },
+    select: { id: true, paymentOffset: true, telegramId: true, name: true, lessonPrice: true, groupLessonPrice: true },
   });
 
   let matched = 0;
@@ -88,11 +88,25 @@ export async function pollPayments(teacherId: string): Promise<number> {
     const student = teacherStudents.find((s) => s.paymentOffset === offsetValue);
     if (!student) continue;
 
-    // Optionally link to oldest open PaymentRequest for tracking
-    const openRequest = await prisma.paymentRequest.findFirst({
-      where: { studentId: student.id, fulfilledBy: null },
+    // Accept only exact amounts: open PaymentRequest match OR a lesson-price multiple
+    const exactRequest = await prisma.paymentRequest.findFirst({
+      where: { studentId: student.id, fulfilledBy: null, amountTotal: tx.amount },
       orderBy: { createdAt: "asc" },
     });
+
+    let openRequest = exactRequest;
+    if (!exactRequest) {
+      const baseAmount = tx.amount - student.paymentOffset;
+      const validPrices = [student.lessonPrice, student.groupLessonPrice].filter((p): p is number => !!p && p > 0);
+      const isValid = validPrices.some((p) => baseAmount > 0 && baseAmount % p === 0);
+      if (!isValid) continue;
+
+      // Link to oldest open request for tracking (if any)
+      openRequest = await prisma.paymentRequest.findFirst({
+        where: { studentId: student.id, fulfilledBy: null },
+        orderBy: { createdAt: "asc" },
+      });
+    }
 
     await prisma.payment.create({
       data: {
