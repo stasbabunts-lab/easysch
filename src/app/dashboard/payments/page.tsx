@@ -261,6 +261,7 @@ export default function PaymentsPage() {
   const [paymentDetails, setPaymentDetails] = useState("");
   const [postLessonNote, setPostLessonNote] = useState("");
   const [savingMsg, setSavingMsg] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/teachers")
@@ -270,8 +271,9 @@ export default function PaymentsPage() {
           setPaymentDetails(d.paymentDetails ?? "");
           setPostLessonNote(d.postLessonNote ?? "");
         }
+        setSettingsLoaded(true);
       })
-      .catch(() => null);
+      .catch(() => setSettingsLoaded(true));
   }, []);
 
   async function saveMessage(e: React.FormEvent) {
@@ -386,6 +388,16 @@ export default function PaymentsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Warning: no payment details */}
+      {settingsLoaded && !paymentDetails && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <RefreshCw className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 hidden" />
+          <span className="text-sm text-amber-800">
+            ⚠️ Реквізити для оплати не заповнені — клієнти не отримуватимуть повідомлень і ви не зможете створювати запити оплати. Заповніть їх нижче.
+          </span>
+        </div>
+      )}
 
       {/* Student message editor */}
       <div className="border border-border/50 rounded-xl overflow-hidden">
