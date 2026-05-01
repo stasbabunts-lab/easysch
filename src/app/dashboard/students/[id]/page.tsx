@@ -44,7 +44,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const totalPaid = student.payments.reduce((s, p) => s + p.amountReceived, 0);
   const totalOwed = student.paymentRequests
     .filter((r) => r.fulfilledBy === null)
-    .reduce((s, r) => s + r.amountTotal, 0);
+    .reduce((s, r) => s + r.amountBase, 0);
 
   return (
     <div className="space-y-6 max-w-4xl">

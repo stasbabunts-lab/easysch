@@ -231,7 +231,7 @@ export default async function DashboardPage() {
     prisma.student.count({ where: { teacherId } }),
     prisma.paymentRequest.aggregate({
       where: { student: { teacherId }, fulfilledBy: null },
-      _sum: { amountTotal: true },
+      _sum: { amountBase: true },
     }),
     prisma.payment.findMany({
       where: { teacherId },
@@ -269,7 +269,7 @@ export default async function DashboardPage() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard label={LABELS.students} value={studentCount} icon={Users} color="text-violet-600" iconBg="bg-violet-50" />
         <StatCard label="Занять сьогодні" value={todayLessons} icon={CalendarDays} color="text-blue-600" iconBg="bg-blue-50" />
-        <StatCard label="Очікує оплат" value={formatAmount(pendingPayments._sum.amountTotal ?? 0)} icon={CreditCard} color="text-amber-600" iconBg="bg-amber-50" />
+        <StatCard label="Очікує оплат" value={formatAmount(pendingPayments._sum.amountBase ?? 0)} icon={CreditCard} color="text-amber-600" iconBg="bg-amber-50" />
         <StatCard label="Найближчий клієнт" value={upcomingLessons[0]?.student.name.split(" ")[0] ?? "—"} icon={TrendingUp} color="text-emerald-600" iconBg="bg-emerald-50" />
       </div>
 

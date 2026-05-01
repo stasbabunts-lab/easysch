@@ -58,7 +58,7 @@ export async function GET() {
       // Open payment requests
       paymentRequests: {
         where: { fulfilledBy: null },
-        select: { amountTotal: true },
+        select: { amountBase: true },
       },
     },
     orderBy: { createdAt: "asc" }, // stable fallback
@@ -96,7 +96,7 @@ export async function GET() {
       debt: effectiveBalance < 0 ? -effectiveBalance : 0,
       lastSlotDate,
       openRequestCount: s.paymentRequests.length,
-      openRequestTotal: s.paymentRequests.reduce((sum, r) => sum + r.amountTotal, 0),
+      openRequestTotal: s.paymentRequests.reduce((sum, r) => sum + r.amountBase, 0),
     };
   });
 
