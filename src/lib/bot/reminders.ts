@@ -14,10 +14,9 @@ export async function sendPaymentConfirmation(
   telegramId: string,
   amountKopecks: number,
 ) {
-  await sendTelegramMessage(
-    telegramId,
-    `✅ Оплату ${formatAmount(amountKopecks)} отримано! Дякуємо.`
-  );
+  const text = `✅ Оплату ${formatAmount(amountKopecks)} отримано! Дякуємо.`;
+  await sendTelegramMessage(telegramId, text);
+  return text;
 }
 
 export async function sendStudentLessonReminder(
@@ -44,14 +43,14 @@ export async function sendStudentLessonReminder(
       ? `${Math.round(minutesBefore / 60)} год.`
       : `${minutesBefore} хв.`;
 
-  await sendTelegramMessage(
-    telegramId,
-    `⏰ <b>Нагадування про заняття</b>\n\n` +
-      `📅 ${date}\n` +
-      `🕐 ${time} (через ${timeLabel})\n` +
-      `👤 Спеціаліст: ${teacherName}\n` +
-      `🔁 Тип: ${typeLabel}`
-  );
+  const text =
+    `⏰ Нагадування про заняття\n\n` +
+    `📅 ${date}\n` +
+    `🕐 ${time} (через ${timeLabel})\n` +
+    `👤 Спеціаліст: ${teacherName}\n` +
+    `🔁 Тип: ${typeLabel}`;
+  await sendTelegramMessage(telegramId, text);
+  return text;
 }
 
 export async function sendTeacherLessonReminder(
@@ -93,22 +92,14 @@ export async function sendPostLessonPaymentReminder(
   amountTotal?: number,
   postLessonNote?: string | null
 ) {
-  // Message 1 — fixed intro
   const amountStr = amountTotal !== undefined ? formatAmount(amountTotal) : "—";
-  let text = `Ви завершили заняття на платформі Easy Schedule, будь ласка сплатіть <b>${amountStr}</b> на рахунок:\n\n`;
-
-  // Message 2 — editable payment details
+  let text = `Ви завершили заняття на платформі Easy Schedule, будь ласка сплатіть ${amountStr} на рахунок:\n\n`;
   text += `${paymentDetails}\n\n`;
-
-  // Message 3 — fixed warning (bold)
-  text += `<b>Будь ласка сплачуйте точну суму</b>`;
-
-  // Message 4 — optional note
-  if (postLessonNote?.trim()) {
-    text += `\n\n${postLessonNote.trim()}`;
-  }
+  text += `Будь ласка сплачуйте точну суму`;
+  if (postLessonNote?.trim()) text += `\n\n${postLessonNote.trim()}`;
 
   await sendTelegramMessage(studentTelegramId, text);
+  return text;
 }
 
 export async function sendPaymentRequestNotification(
@@ -118,12 +109,13 @@ export async function sendPaymentRequestNotification(
   postLessonNote?: string | null
 ) {
   const amountStr = formatAmount(amountTotal);
-  let text = `💳 <b>Запит на оплату</b>\n\n`;
-  text += `Сума до сплати: <b>${amountStr}</b>\n\n`;
+  let text = `💳 Запит на оплату\n\n`;
+  text += `Сума до сплати: ${amountStr}\n\n`;
   text += `Реквізити:\n${paymentDetails}\n\n`;
-  text += `<b>Будь ласка сплачуйте точну суму</b>`;
+  text += `Будь ласка сплачуйте точну суму`;
   if (postLessonNote?.trim()) text += `\n\n${postLessonNote.trim()}`;
   await sendTelegramMessage(studentTelegramId, text);
+  return text;
 }
 
 export async function sendTeacherPaymentNotification(

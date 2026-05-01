@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   // Notify student in Telegram if connected (paymentDetails already validated above)
   if (student.telegramId) {
-    await sendPaymentRequestNotification(
+    const sentText = await sendPaymentRequestNotification(
       student.telegramId,
       student.teacher.paymentDetails!,
       amountTotal,
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       studentId: studentId,
       studentName: student.name,
       type: "payment_request",
-      text: `Запит на оплату ${formatAmount(amountTotal)}`,
+      text: sentText ?? `Запит на оплату ${formatAmount(amountTotal)}`,
     }).catch(() => null);
   }
 

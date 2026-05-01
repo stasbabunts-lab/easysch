@@ -122,7 +122,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
     matched++;
 
     if (student.telegramId) {
-      await sendPaymentConfirmation(
+      const sentText = await sendPaymentConfirmation(
         student.telegramId,
         tx.amount,
       ).catch(() => null);
@@ -131,7 +131,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         studentId: student.id,
         studentName: student.name,
         type: "payment_confirmed",
-        text: `Оплата ${formatAmount(tx.amount)} підтверджена`,
+        text: sentText ?? `Оплата ${formatAmount(tx.amount)} підтверджена`,
       }).catch(() => null);
     }
 
@@ -177,7 +177,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
     if (!lesson.reminderSent && slot.student.telegramId && msUntil >= 5 * 60 * 1000) {
       const bestWindow = [...studentWindowsMin].sort((a, b) => a - b).find((w) => msUntil <= w * 60 * 1000 + 5 * 60 * 1000);
       if (bestWindow !== undefined) {
-        await sendStudentLessonReminder(
+        const sentText = await sendStudentLessonReminder(
           slot.student.telegramId,
           scheduledAt,
           bestWindow,
@@ -189,7 +189,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
           studentId: slot.student.id,
           studentName: slot.student.name,
           type: "lesson_reminder",
-          text: `Нагадування: заняття ${slot.date} о ${slot.startTime}`,
+          text: sentText ?? `Нагадування: заняття ${slot.date} о ${slot.startTime}`,
         }).catch(() => null);
         await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
       }
@@ -309,7 +309,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         orderBy: { createdAt: "desc" },
       });
 
-      await sendPostLessonPaymentReminder(
+      const sentReminderText = await sendPostLessonPaymentReminder(
         slot.student.telegramId,
         teacher.paymentDetails ?? "",
         request?.amountTotal,
@@ -320,9 +320,9 @@ export async function pollPayments(teacherId: string): Promise<number> {
         studentId: slot.student.id,
         studentName: slot.student.name,
         type: "payment_reminder",
-        text: request?.amountTotal
+        text: sentReminderText ?? (request?.amountTotal
           ? `Нагадування про оплату після заняття: ${formatAmount(request.amountTotal)}`
-          : "Нагадування про оплату після заняття",
+          : "Нагадування про оплату після заняття"),
       }).catch(() => null);
       await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
     }
@@ -359,7 +359,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         const priceKopecks = student.groupLessonPrice ?? student.lessonPrice;
         const amount = request?.amountTotal ?? priceKopecks;
 
-        await sendPostLessonPaymentReminder(
+        const sentGroupReminderText = await sendPostLessonPaymentReminder(
           student.telegramId,
           teacher.paymentDetails ?? "",
           amount,
@@ -370,7 +370,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
           studentId: student.id,
           studentName: student.name,
           type: "payment_reminder",
-          text: `Нагадування про оплату після групового заняття: ${formatAmount(amount)}`,
+          text: sentGroupReminderText ?? `Нагадування про оплату після групового заняття: ${formatAmount(amount)}`,
         }).catch(() => null);
         await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
       }
