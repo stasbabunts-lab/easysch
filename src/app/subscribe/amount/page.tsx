@@ -30,12 +30,14 @@ export default function SubscribeAmountPage() {
 
   const priceUah = Math.round(settings.priceKopecks / 100);
   const inputUah = parseFloat(amountStr) || 0;
-  const periods = inputUah >= priceUah ? Math.floor(inputUah / priceUah) : 0;
-  const addDays = periods * settings.periodDays;
+  const addDays = inputUah > 0
+    ? Math.floor(inputUah * 100 * settings.periodDays / settings.priceKopecks)
+    : 0;
 
   async function handleProceed() {
-    if (inputUah < priceUah) {
-      setError(`Мінімальна сума: ${priceUah} грн`);
+    if (addDays < 1) {
+      const minUah = Math.ceil(settings.priceKopecks / settings.periodDays) / 100;
+      setError(`Мінімальна сума: ${minUah.toFixed(0)} грн`);
       return;
     }
     setError("");
@@ -78,8 +80,7 @@ export default function SubscribeAmountPage() {
             <div className="relative">
               <input
                 type="number"
-                min={priceUah}
-                step={priceUah}
+                min={1}
                 value={amountStr}
                 onChange={(e) => { setAmountStr(e.target.value); setError(""); }}
                 className="w-full text-4xl font-bold bg-transparent outline-none pr-16 py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -92,25 +93,20 @@ export default function SubscribeAmountPage() {
 
           {/* Days result — always visible */}
           <div className={`rounded-lg px-4 py-3 flex items-center justify-between transition-colors ${
-            periods > 0 ? "bg-primary/8 border border-primary/20" : "bg-muted/50 border border-border/40"
+            addDays > 0 ? "bg-primary/8 border border-primary/20" : "bg-muted/50 border border-border/40"
           }`}>
             <span className="text-sm text-muted-foreground">Отримаєте днів:</span>
-            <span className={`text-lg font-bold ${periods > 0 ? "text-primary" : "text-muted-foreground"}`}>
-              {periods > 0 ? `+${addDays}` : "—"}
+            <span className={`text-lg font-bold ${addDays > 0 ? "text-primary" : "text-muted-foreground"}`}>
+              {addDays > 0 ? `+${addDays}` : "—"}
             </span>
           </div>
         </div>
 
-        {periods > 1 && (
-          <p className="text-xs text-center text-muted-foreground">
-            {periods} × {settings.periodDays} днів
-          </p>
-        )}
       </div>
 
       <button
         onClick={handleProceed}
-        disabled={loading || periods < 1}
+        disabled={loading || addDays < 1}
         className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base"
       >
         {loading ? "Підготовка..." : "Оплатити →"}

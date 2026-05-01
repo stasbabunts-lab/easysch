@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       data: { status: "EXPIRED" },
     });
   }
-  const addDays = Math.max(1, Math.floor(baseAmount / settings.priceKopecks) * settings.periodDays);
+  const addDays = Math.max(1, Math.floor(baseAmount * settings.periodDays / settings.priceKopecks));
 
   // Assign unique offset
   const pending = await prisma.subscriptionPayment.findMany({
