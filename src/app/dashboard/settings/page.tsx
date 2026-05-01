@@ -63,9 +63,7 @@ export default function SettingsPage() {
 
   const code = session?.user?.teacherCode ?? "...";
   const publicSlug = settings.alias || code;
-  const [origin, setOrigin] = useState("");
-  useEffect(() => { setOrigin(window.location.origin); }, []);
-  const publicUrl = `${origin}/${publicSlug}`;
+  const publicUrl = `https://easy-sch.com/${publicSlug}`;
 
   useEffect(() => {
     fetch("/api/teachers")
@@ -272,16 +270,15 @@ export default function SettingsPage() {
           <form onSubmit={saveAlias} className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Власне посилання (аліас)</p>
             <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground select-none">
-                  {origin}/
+              <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
+                <span className="flex items-center px-3 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-none">
+                  easy-sch.com/
                 </span>
-                <Input
+                <input
                   value={settings.alias}
                   onChange={(e) => setSettings((s) => ({ ...s, alias: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
                   placeholder={code.toLowerCase()}
-                  className="pl-[calc(0.75rem+var(--origin-width,80px))] font-mono text-sm"
-                  style={{ paddingLeft: `${(origin.replace("https://", "").replace("http://", "").length + 2) * 7 + 12}px` }}
+                  className="flex-1 px-3 py-2 text-sm font-mono bg-background outline-none min-w-0"
                 />
               </div>
               <Button type="submit" size="sm" disabled={savingAlias}>
