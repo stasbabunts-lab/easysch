@@ -237,10 +237,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-bold">Налаштування</h1>
-        <p className="text-muted-foreground text-sm mt-1">{APP_NAME}</p>
-      </div>
+      <h1 className="text-2xl font-bold">Налаштування</h1>
 
       {/* Teacher code */}
       <Card className="border-border/50">
