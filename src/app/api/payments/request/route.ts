@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { studentId, amountBase, description } = await req.json();
+  const { studentId, amountBase, description, silent } = await req.json();
   if (!studentId || !amountBase) {
     return NextResponse.json({ error: "studentId и сумма обязательны" }, { status: 400 });
   }
@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Notify student in Telegram if connected (paymentDetails already validated above)
-  if (student.telegramId) {
+  // Notify student in Telegram if connected and not a silent update
+  if (!silent && student.telegramId) {
     const sentText = await sendPaymentRequestNotification(
       student.telegramId,
       student.teacher.paymentDetails!,

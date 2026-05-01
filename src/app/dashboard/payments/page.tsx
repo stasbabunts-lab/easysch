@@ -281,7 +281,7 @@ function RequestCell({ client, onSaved }: { client: ActiveClient; onSaved: (upda
         const res = await fetch("/api/payments/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studentId: client.id, amountBase: amount }),
+          body: JSON.stringify({ studentId: client.id, amountBase: amount, silent: true }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
