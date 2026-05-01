@@ -24,6 +24,7 @@ interface TeacherSettings {
   phone: string;
   name: string;
   displayName: string;
+  alias: string;
 }
 
 interface BankAccount {
@@ -44,7 +45,9 @@ export default function SettingsPage() {
     phone: "",
     name: "",
     displayName: "",
+    alias: "",
   });
+  const [savingAlias, setSavingAlias] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
   const [savingReminders, setSavingReminders] = useState(false);
   const [savingDisplay, setSavingDisplay] = useState(false);
@@ -59,8 +62,10 @@ export default function SettingsPage() {
   const [adding, setAdding] = useState(false);
 
   const code = session?.user?.teacherCode ?? "...";
-  const [publicUrl, setPublicUrl] = useState(`/${code}`);
-  useEffect(() => { setPublicUrl(`${window.location.origin}/${code}`); }, [code]);
+  const publicSlug = settings.alias || code;
+  const [origin, setOrigin] = useState("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const publicUrl = `${origin}/${publicSlug}`;
 
   useEffect(() => {
     fetch("/api/teachers")
@@ -74,6 +79,7 @@ export default function SettingsPage() {
           phone: data.phone ?? "",
           name: data.name ?? "",
           displayName: data.displayName ?? "",
+          alias: data.alias ?? "",
         });
       })
       .catch(() => null);
@@ -94,6 +100,30 @@ export default function SettingsPage() {
   function copyUrl() {
     navigator.clipboard.writeText(publicUrl);
     toast.success("Посилання скопійовано");
+  }
+
+  async function saveAlias(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingAlias(true);
+    try {
+      const res = await fetch("/api/teachers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alias: settings.alias }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error ?? "Помилка збереження");
+        return;
+      }
+      const updated = await res.json();
+      setSettings((s) => ({ ...s, alias: updated.alias ?? "" }));
+      toast.success(updated.alias ? "Аліас збережено" : "Аліас видалено");
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setSavingAlias(false);
+    }
   }
 
   async function saveDisplayName(e: React.FormEvent) {
@@ -237,6 +267,29 @@ export default function SettingsPage() {
               </a>
             </div>
           </div>
+
+          {/* Alias editor */}
+          <form onSubmit={saveAlias} className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Власне посилання (аліас)</p>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground select-none">
+                  {origin}/
+                </span>
+                <Input
+                  value={settings.alias}
+                  onChange={(e) => setSettings((s) => ({ ...s, alias: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
+                  placeholder={code.toLowerCase()}
+                  className="pl-[calc(0.75rem+var(--origin-width,80px))] font-mono text-sm"
+                  style={{ paddingLeft: `${(origin.replace("https://", "").replace("http://", "").length + 2) * 7 + 12}px` }}
+                />
+              </div>
+              <Button type="submit" size="sm" disabled={savingAlias}>
+                {savingAlias ? "..." : "Зберегти"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Тільки a–z, 0–9, дефіс. Мін. 3 символи. Залиште порожнім — буде код.</p>
+          </form>
         </CardContent>
       </Card>
 

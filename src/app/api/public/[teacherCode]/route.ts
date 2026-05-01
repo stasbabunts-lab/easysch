@@ -7,9 +7,10 @@ export async function GET(
 ) {
   const { teacherCode } = await params;
 
-  const teacher = await prisma.teacher.findUnique({
-    where: { code: teacherCode.toUpperCase() },
-    select: { name: true, displayName: true, timezone: true, telegramUsername: true, phone: true },
+  // Resolve: alias (lowercase) first, then code (uppercase)
+  const teacher = await prisma.teacher.findFirst({
+    where: { OR: [{ alias: teacherCode.toLowerCase() }, { code: teacherCode.toUpperCase() }] },
+    select: { id: true, name: true, displayName: true, timezone: true, telegramUsername: true, phone: true },
   });
 
   if (!teacher) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -19,7 +20,7 @@ export async function GET(
 
   const slots = await prisma.availabilitySlot.findMany({
     where: {
-      teacher: { code: teacherCode.toUpperCase() },
+      teacherId: teacher.id,
       isActive: true,
       studentId: null, // only free slots on public page
       date: { gte: today, lte: in28Days },

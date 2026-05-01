@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, telegramUsername, phone, paymentMinAmount, paymentMaxAmount } = body;
+  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, telegramUsername, phone, paymentMinAmount, paymentMaxAmount, alias } = body;
 
   const data: Record<string, string | number | null> = {};
 
@@ -39,6 +39,17 @@ export async function PATCH(req: NextRequest) {
   if (phone !== undefined) data.phone = phone?.trim() || null;
   if (paymentMinAmount !== undefined) data.paymentMinAmount = paymentMinAmount === null || paymentMinAmount === "" ? null : Math.round(Number(paymentMinAmount) * 100);
   if (paymentMaxAmount !== undefined) data.paymentMaxAmount = paymentMaxAmount === null || paymentMaxAmount === "" ? null : Math.round(Number(paymentMaxAmount) * 100);
+  if (alias !== undefined) {
+    const cleaned = alias?.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || null;
+    if (cleaned && cleaned.length < 3) {
+      return NextResponse.json({ error: "Аліас має бути не менше 3 символів" }, { status: 400 });
+    }
+    if (cleaned) {
+      const existing = await prisma.teacher.findFirst({ where: { alias: cleaned, NOT: { id: session.user.id } } });
+      if (existing) return NextResponse.json({ error: "Цей аліас вже зайнятий" }, { status: 409 });
+    }
+    data.alias = cleaned;
+  }
 
   const updated = await prisma.teacher.update({
     where: { id: session.user.id },
@@ -47,6 +58,7 @@ export async function PATCH(req: NextRequest) {
       id: true,
       name: true,
       displayName: true,
+      alias: true,
       teacherReminderMinutes: true,
       studentReminderMinutes: true,
       telegramChatId: true,
@@ -75,6 +87,7 @@ export async function GET() {
       displayName: true,
       email: true,
       code: true,
+      alias: true,
       teacherReminderMinutes: true,
       studentReminderMinutes: true,
       telegramChatId: true,
