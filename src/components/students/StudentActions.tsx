@@ -159,6 +159,9 @@ export function StudentActions({ student, hasPaymentDetails }: { student: Studen
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Запит оплати</DialogTitle></DialogHeader>
           <form onSubmit={createPaymentRequest} className="space-y-4">
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              💡 Якщо реквізити заповнені — запит надсилається учню автоматично після кожного заняття. Тут можна надіслати позаплановий запит вручну.
+            </p>
             <div className="space-y-2">
               <Label>Сума</Label>
               <Input name="amount" type="number" defaultValue={student.lessonPrice / 100} min="1" step="1" required />
