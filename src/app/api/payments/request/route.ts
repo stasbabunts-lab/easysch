@@ -40,14 +40,16 @@ export async function POST(req: NextRequest) {
       amountTotal,
       student.teacher.postLessonNote,
     ).catch(() => null);
-    await logNotification({
-      teacherId: session.user.id,
-      studentId: studentId,
-      studentName: student.name,
-      type: "payment_request",
-      text: `Запит на оплату ${formatAmount(amountTotal)}`,
-    }).catch(() => null);
   }
+
+  // Always log payment request creation
+  await logNotification({
+    teacherId: session.user.id,
+    studentId: studentId,
+    studentName: student.name,
+    type: "payment_request",
+    text: `Запит на оплату ${formatAmount(amountTotal)}`,
+  }).catch(() => null);
 
   return NextResponse.json(request, { status: 201 });
 }

@@ -55,6 +55,11 @@ export async function GET() {
         where: { isIgnored: false },
         select: { amountReceived: true },
       },
+      // Open payment requests
+      paymentRequests: {
+        where: { fulfilledBy: null },
+        select: { amountTotal: true },
+      },
     },
     orderBy: { createdAt: "asc" }, // stable fallback
   });
@@ -90,6 +95,8 @@ export async function GET() {
       credit: effectiveBalance > 0 ? effectiveBalance : 0,
       debt: effectiveBalance < 0 ? -effectiveBalance : 0,
       lastSlotDate,
+      openRequestCount: s.paymentRequests.length,
+      openRequestTotal: s.paymentRequests.reduce((sum, r) => sum + r.amountTotal, 0),
     };
   });
 

@@ -23,6 +23,8 @@ interface ActiveClient {
   balanceAdjustmentKopecks: number;
   credit: number;
   debt: number;
+  openRequestCount: number;
+  openRequestTotal: number;
 }
 
 interface TxItem {
@@ -489,7 +491,7 @@ export default function PaymentsPage() {
                       <Link href={`/dashboard/students/${c.id}`} className="font-medium hover:text-primary hover:underline underline-offset-2 transition-colors">{c.name}</Link>
                       <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">{c.offsetFormatted}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground">
                       <div>
                         <p className="mb-1">Ціна ✎</p>
                         <PriceCell client={c} onSaved={updateClient} />
@@ -501,6 +503,16 @@ export default function PaymentsPage() {
                       <div>
                         <p className="mb-1">Борг ✎</p>
                         <BalanceCell client={c} side="debt" onSaved={updateClient} />
+                      </div>
+                      <div>
+                        <p className="mb-1">Запит</p>
+                        <div className="text-right">
+                          {c.openRequestCount > 0 ? (
+                            <span className="font-semibold text-amber-600">{formatAmount(c.openRequestTotal)}</span>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -516,6 +528,7 @@ export default function PaymentsPage() {
                       <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-36">Ціна ✎</th>
                       <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">На рахунку ✎</th>
                       <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">Не оплачено ✎</th>
+                      <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">Запит оплати</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -532,6 +545,18 @@ export default function PaymentsPage() {
                         <td className="px-4 py-3"><PriceCell client={c} onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><BalanceCell client={c} side="credit" onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><BalanceCell client={c} side="debt" onSaved={updateClient} /></td>
+                        <td className="px-4 py-3 text-right">
+                          {c.openRequestCount > 0 ? (
+                            <span className="font-semibold text-amber-600 tabular-nums">
+                              {formatAmount(c.openRequestTotal)}
+                              {c.openRequestCount > 1 && (
+                                <span className="text-xs font-normal text-muted-foreground ml-1">×{c.openRequestCount}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
