@@ -118,8 +118,7 @@ function SubscriptionBanner({ expiresAt }: { expiresAt: Date | null }) {
         </div>
       </div>
       <Link
-        href="https://t.me/easy_sch"
-        target="_blank"
+        href="/subscribe"
         className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${badgeCls}`}
       >
         Продовжити

@@ -12,8 +12,8 @@ import {
   CreditCard,
   Settings,
   LogOut,
-  Layers,
 } from "lucide-react";
+import { TabletIcon } from "@/components/ui/TabletIcon";
 
 const NAV = [
   { href: "/dashboard", label: LABELS.dashboard, icon: LayoutDashboard, exact: true },
@@ -31,7 +31,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 h-[60px] border-b border-sidebar-border">
         <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <Layers className="h-3.5 w-3.5 text-white" />
+          <TabletIcon size={15} className="text-white" />
         </div>
         <span className="text-[15px] font-semibold text-white tracking-tight">{APP_NAME}</span>
       </div>

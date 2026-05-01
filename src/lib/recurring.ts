@@ -42,6 +42,7 @@ export async function extendExpiringSeries(teacherId: string) {
 
     const last = await prisma.availabilitySlot.findFirst({
       where: { recurringGroupId: g.recurringGroupId, date: g._max.date ?? undefined },
+      include: { groupStudents: { select: { studentId: true } } },
     });
     if (!last) continue;
 
@@ -54,15 +55,28 @@ export async function extendExpiringSeries(teacherId: string) {
       last.endTime,
       last.durationMin,
       last.recurringGroupId!,
-      8 // extend by 8 more weeks
+      8
     );
     await prisma.availabilitySlot.createMany({
       data: instances.map((inst) => ({
         teacherId,
         ...inst,
+        isGroup: last.isGroup,
         studentId: last.studentId,
         isActive: true,
       })),
     });
+
+    if (last.isGroup && last.groupStudents.length > 0) {
+      const newSlots = await prisma.availabilitySlot.findMany({
+        where: { recurringGroupId: last.recurringGroupId!, date: { gte: nextDate.toISOString().slice(0, 10) } },
+        select: { id: true },
+      });
+      await prisma.groupSlotStudent.createMany({
+        data: newSlots.flatMap((slot) =>
+          last.groupStudents.map((gs) => ({ slotId: slot.id, studentId: gs.studentId }))
+        ),
+      });
+    }
   }
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, User, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash2, User, Users, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle } from "lucide-react";
 
 function computeEndTime(startTime: string, durationMin: number): string {
   const [h, m] = startTime.split(":").map(Number);
@@ -46,6 +46,13 @@ interface SlotData {
   recurringGroupId: string | null;
   studentId: string | null;
   student: StudentInfo | null;
+  isGroup: boolean;
+  groupStudents: { studentId: string; student: StudentInfo }[];
+}
+
+function timeToMin(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
 }
 
 interface Props {
@@ -90,7 +97,7 @@ export function ScheduleManager({ students }: Props) {
   const [newSlot, setNewSlot] = useState(() => {
     const startTime = "10:00";
     const durationMin = 60;
-    return { date: isoDate(new Date()), startTime, endTime: computeEndTime(startTime, durationMin), durationMin, durationStr: "60", isRecurring: false, studentId: "" };
+    return { date: isoDate(new Date()), startTime, endTime: computeEndTime(startTime, durationMin), durationMin, durationStr: "60", isRecurring: false, isGroup: false, studentId: "", groupStudentIds: [] as string[] };
   });
   const [adding, setAdding] = useState(false);
 
@@ -166,14 +173,24 @@ export function ScheduleManager({ students }: Props) {
 
   // ── Add slot ─────────────────────────────────────────────────────────
   async function handleAdd() {
+    if (newSlot.isGroup && newSlot.groupStudentIds.length === 0) {
+      toast.error("Оберіть хоча б одного клієнта для групового заняття");
+      return;
+    }
     setAdding(true);
     try {
       const res = await fetch("/api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...newSlot,
-          studentId: newSlot.studentId || null,
+          date: newSlot.date,
+          startTime: newSlot.startTime,
+          endTime: newSlot.endTime,
+          durationMin: newSlot.durationMin,
+          isRecurring: newSlot.isRecurring,
+          isGroup: newSlot.isGroup,
+          studentId: newSlot.isGroup ? null : (newSlot.studentId || null),
+          studentIds: newSlot.isGroup ? newSlot.groupStudentIds : undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -288,7 +305,7 @@ export function ScheduleManager({ students }: Props) {
   const sortedStudents = [...students].sort((a, b) => {
     const lastSlot = (s: StudentInfo) =>
       slots
-        .filter((sl) => sl.studentId === s.id)
+        .filter((sl) => sl.studentId === s.id || sl.groupStudents?.some((gs) => gs.studentId === s.id))
         .map((sl) => sl.date)
         .sort()
         .at(-1) ?? null;
@@ -296,6 +313,19 @@ export function ScheduleManager({ students }: Props) {
     const keyB = lastSlot(b) ?? new Date(b.createdAt).toISOString().slice(0, 10);
     return keyB.localeCompare(keyA);
   });
+
+  // ── Conflict detection ────────────────────────────────────────────────
+  const conflictSlots = useMemo(() => {
+    if (!newSlot.date || !newSlot.startTime || !newSlot.endTime) return [];
+    const newStart = timeToMin(newSlot.startTime);
+    const newEnd = timeToMin(newSlot.endTime);
+    return slots.filter(
+      (s) =>
+        s.date === newSlot.date &&
+        timeToMin(s.startTime) < newEnd &&
+        timeToMin(s.endTime) > newStart
+    );
+  }, [slots, newSlot.date, newSlot.startTime, newSlot.endTime]);
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
@@ -361,7 +391,7 @@ export function ScheduleManager({ students }: Props) {
                         <SlotRow
                           key={slot.id}
                           slot={slot}
-                          onAssign={() => openAssign(slot)}
+                          onAssign={slot.isGroup ? undefined : () => openAssign(slot)}
                           onDelete={() => setDeleteSlot(slot)}
                           onToggleRecurring={() => setToggleSlot(slot)}
                         />
@@ -428,58 +458,106 @@ export function ScheduleManager({ students }: Props) {
                 onChange={(e) => setNewSlot((s) => ({ ...s, date: e.target.value }))}
               />
             </div>
-            <div className="flex gap-2">
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs">Початок</Label>
-                <Input
-                  ref={startTimeRef}
-                  type="time"
-                  value={newSlot.startTime}
-                  onChange={(e) => setNewSlot((s) => {
-                    const newStart = e.target.value;
-                    return { ...s, startTime: newStart, endTime: computeEndTime(newStart, s.durationMin) };
-                  })}
-                />
-              </div>
-              <div className="w-24 space-y-1.5">
-                <Label className="text-xs">Хв.</Label>
-                <Input
-                  ref={durationRef}
-                  type="text"
-                  inputMode="numeric"
-                  value={newSlot.durationStr}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^0-9]/g, "");
-                    setNewSlot((s) => {
-                      const parsed = parseInt(raw, 10);
-                      if (!isNaN(parsed) && parsed >= 10) {
-                        return { ...s, durationStr: raw, durationMin: parsed, endTime: computeEndTime(s.startTime, parsed) };
-                      }
-                      return { ...s, durationStr: raw };
-                    });
-                  }}
-                  onBlur={() => setNewSlot((s) => {
-                    const parsed = parseInt(s.durationStr, 10);
-                    const clamped = isNaN(parsed) || parsed < 10 ? 60 : parsed;
-                    return { ...s, durationMin: clamped, durationStr: String(clamped), endTime: computeEndTime(s.startTime, clamped) };
-                  })}
-                />
-              </div>
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Кінець</Label>
-                <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-mono text-muted-foreground">
-                  {newSlot.endTime}
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs">Початок</Label>
+                  <Input
+                    ref={startTimeRef}
+                    type="time"
+                    value={newSlot.startTime}
+                    onChange={(e) => setNewSlot((s) => {
+                      const newStart = e.target.value;
+                      return { ...s, startTime: newStart, endTime: computeEndTime(newStart, s.durationMin) };
+                    })}
+                  />
+                </div>
+                <div className="w-24 space-y-1.5">
+                  <Label className="text-xs">Хв.</Label>
+                  <Input
+                    ref={durationRef}
+                    type="text"
+                    inputMode="numeric"
+                    value={newSlot.durationStr}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9]/g, "");
+                      setNewSlot((s) => {
+                        const parsed = parseInt(raw, 10);
+                        if (!isNaN(parsed) && parsed >= 10) {
+                          return { ...s, durationStr: raw, durationMin: parsed, endTime: computeEndTime(s.startTime, parsed) };
+                        }
+                        return { ...s, durationStr: raw };
+                      });
+                    }}
+                    onBlur={() => setNewSlot((s) => {
+                      const parsed = parseInt(s.durationStr, 10);
+                      const clamped = isNaN(parsed) || parsed < 10 ? 60 : parsed;
+                      return { ...s, durationMin: clamped, durationStr: String(clamped), endTime: computeEndTime(s.startTime, clamped) };
+                    })}
+                  />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Кінець</Label>
+                  <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-mono text-muted-foreground">
+                    {newSlot.endTime}
+                  </div>
                 </div>
               </div>
+              {conflictSlots.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-600 pt-0.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Перетинається з{" "}
+                    {conflictSlots.map((s) => {
+                      const name = s.isGroup
+                        ? `групою (${s.groupStudents.map((g) => g.student.name).join(", ")})`
+                        : (s.student?.name ?? "вільним слотом");
+                      return `${name} (${s.startTime}–${s.endTime})`;
+                    }).join(", ")}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Клієнт (необов&apos;язково)</Label>
-              <StudentPicker
-                value={newSlot.studentId}
-                onChange={(id) => setNewSlot((s) => ({ ...s, studentId: id }))}
-                students={sortedStudents}
-              />
+            {/* Group / single toggle */}
+            <div className="flex rounded-lg border border-border/50 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setNewSlot((s) => ({ ...s, isGroup: false }))}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium transition-colors ${
+                  !newSlot.isGroup ? "bg-primary text-primary-foreground" : "hover:bg-muted/50 text-muted-foreground"
+                }`}
+              >
+                <User className="h-3.5 w-3.5" /> Індивідуальне
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewSlot((s) => ({ ...s, isGroup: true, studentId: "" }))}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium transition-colors border-l border-border/50 ${
+                  newSlot.isGroup ? "bg-primary text-primary-foreground" : "hover:bg-muted/50 text-muted-foreground"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" /> Групове
+              </button>
             </div>
+            {newSlot.isGroup ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Клієнти групи</Label>
+                <MultiStudentPicker
+                  value={newSlot.groupStudentIds}
+                  onChange={(ids) => setNewSlot((s) => ({ ...s, groupStudentIds: ids }))}
+                  students={sortedStudents}
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Клієнт (необов&apos;язково)</Label>
+                <StudentPicker
+                  value={newSlot.studentId}
+                  onChange={(id) => setNewSlot((s) => ({ ...s, studentId: id }))}
+                  students={sortedStudents}
+                />
+              </div>
+            )}
             {/* Weekly toggle */}
             <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-border/50 px-4 py-3 hover:bg-muted/50 transition-colors">
               <input type="checkbox" checked={newSlot.isRecurring}
@@ -713,29 +791,117 @@ function StudentPicker({ value, onChange, students }: {
   );
 }
 
+// ── Multi-student picker (for group slots) ────────────────────────────────────
+
+function MultiStudentPicker({ value, onChange, students }: {
+  value: string[];
+  onChange: (ids: string[]) => void;
+  students: StudentInfo[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  const sorted = [...students].sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  const filtered = search ? sorted.filter((s) => s.name.toLowerCase().includes(search.toLowerCase())) : sorted;
+
+  function toggle(id: string) {
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  }
+
+  const selectedNames = students.filter((s) => value.includes(s.id)).map((s) => s.name);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full min-h-9 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm text-left flex items-center justify-between gap-2 hover:bg-muted/30 transition-colors"
+      >
+        <span className={selectedNames.length > 0 ? "text-foreground" : "text-muted-foreground"}>
+          {selectedNames.length > 0 ? selectedNames.join(", ") : "Оберіть клієнтів..."}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 w-full mt-1 rounded-md border border-border bg-popover shadow-md overflow-hidden">
+          <div className="border-b border-border/40 px-3 py-1.5">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Пошук..."
+              className="w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground/50 py-0.5"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="max-h-44 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">Не знайдено</p>
+            ) : (
+              filtered.map((s) => {
+                const checked = value.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`w-full px-3 py-2 text-sm text-left flex items-center gap-2.5 transition-colors hover:bg-muted/50 ${checked ? "bg-primary/5" : ""}`}
+                    onClick={() => toggle(s.id)}
+                  >
+                    <span className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-primary border-primary text-primary-foreground" : "border-border"}`}>
+                      {checked && <svg className="h-2.5 w-2.5" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </span>
+                    {s.name}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Slot row component ────────────────────────────────────────────────────────
 
 interface SlotRowProps {
   slot: SlotData;
-  onAssign: () => void;
+  onAssign?: () => void;
   onDelete: () => void;
   onToggleRecurring: () => void;
 }
 
 function SlotRow({ slot, onAssign, onDelete, onToggleRecurring }: SlotRowProps) {
   const isRecurring = slot.isRecurring;
-  const hasStudent = !!slot.student;
+  const isGroup = slot.isGroup;
+  const hasStudent = isGroup ? slot.groupStudents.length > 0 : !!slot.student;
 
-  // 3 states: grey = free, green = weekly + student, blue = once + student
-  const colors = hasStudent
-    ? isRecurring
-      ? { card: "border-emerald-200 bg-emerald-50/80", bar: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200", text: "text-emerald-700", icon: "text-emerald-600" }
-      : { card: "border-blue-200 bg-blue-50/80", bar: "bg-blue-400", badge: "bg-blue-100 text-blue-700 hover:bg-blue-200", text: "text-blue-700", icon: "text-blue-600" }
-    : { card: "border-border/40 bg-muted/30", bar: "bg-muted-foreground/25", badge: "bg-muted text-muted-foreground hover:bg-muted/80", text: "text-muted-foreground", icon: "text-muted-foreground/60" };
+  // group = purple, individual with student = green/blue, free = grey
+  const colors = isGroup
+    ? { card: "border-purple-200 bg-purple-50/80", bar: "bg-purple-400", badge: "bg-purple-100 text-purple-700 hover:bg-purple-200", text: "text-purple-700", icon: "text-purple-600" }
+    : hasStudent
+      ? isRecurring
+        ? { card: "border-emerald-200 bg-emerald-50/80", bar: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200", text: "text-emerald-700", icon: "text-emerald-600" }
+        : { card: "border-blue-200 bg-blue-50/80", bar: "bg-blue-400", badge: "bg-blue-100 text-blue-700 hover:bg-blue-200", text: "text-blue-700", icon: "text-blue-600" }
+      : { card: "border-border/40 bg-muted/30", bar: "bg-muted-foreground/25", badge: "bg-muted text-muted-foreground hover:bg-muted/80", text: "text-muted-foreground", icon: "text-muted-foreground/60" };
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors cursor-pointer ${colors.card}`}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors ${onAssign ? "cursor-pointer" : ""} ${colors.card}`}
       onClick={onAssign}
     >
       {/* Color indicator */}
@@ -749,9 +915,20 @@ function SlotRow({ slot, onAssign, onDelete, onToggleRecurring }: SlotRowProps) 
         <p className="text-[10px] text-muted-foreground">{slot.durationMin} хв</p>
       </div>
 
-      {/* Student */}
+      {/* Student(s) */}
       <div className="flex-1 min-w-0">
-        {slot.student ? (
+        {isGroup ? (
+          slot.groupStudents.length > 0 ? (
+            <div className="flex items-start gap-1.5">
+              <Users className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${colors.icon}`} />
+              <span className={`text-sm font-medium leading-snug ${colors.text}`}>
+                {slot.groupStudents.map((gs) => gs.student.name).join(", ")}
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground/50">Група (без клієнтів)</span>
+          )
+        ) : slot.student ? (
           <div className="flex items-center gap-1.5">
             <User className={`h-3.5 w-3.5 shrink-0 ${colors.icon}`} />
             <span className={`text-sm font-medium truncate ${colors.text}`}>

@@ -31,16 +31,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const existing = await getStudent(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, lessonPrice, notes, balanceAdjustmentKopecks } = await req.json();
+  const { name, lessonPrice, groupLessonPrice, notes, balanceAdjustmentKopecks, sendPaymentReminder } = await req.json();
   const student = await prisma.student.update({
     where: { id },
     data: {
       ...(name && { name }),
       ...(lessonPrice !== undefined && { lessonPrice: Math.round(Number(lessonPrice) * 100) }),
+      ...(groupLessonPrice !== undefined && {
+        groupLessonPrice: groupLessonPrice === null ? null : Math.round(Number(groupLessonPrice) * 100),
+      }),
       ...(notes !== undefined && { notes }),
       ...(balanceAdjustmentKopecks !== undefined && {
         balanceAdjustmentKopecks: Math.round(Number(balanceAdjustmentKopecks)),
       }),
+      ...(sendPaymentReminder !== undefined && { sendPaymentReminder }),
     },
   });
   return NextResponse.json(student);

@@ -28,12 +28,13 @@ model Teacher {
   postLessonNote         String?   // optional 4th line in post-lesson payment reminder
   subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
 
-  slots             AvailabilitySlot[]
-  students          Student[]
-  lessons           Lesson[]
-  payments          Payment[]
-  bankAccounts      BankAccount[]
-  notificationLogs  NotificationLog[]
+  slots                AvailabilitySlot[]
+  students             Student[]
+  lessons              Lesson[]
+  payments             Payment[]
+  bankAccounts         BankAccount[]
+  notificationLogs     NotificationLog[]
+  subscriptionPayments SubscriptionPayment[]
 }
 
 model BankAccount {
@@ -58,10 +59,12 @@ model AvailabilitySlot {
   isRecurring      Boolean  @default(false)
   recurringGroupId String?  // общий UUID для серии повторяющихся событий
   isActive         Boolean  @default(true)
+  isGroup          Boolean  @default(false)
   studentId        String?
   student          Student? @relation(fields: [studentId], references: [id])
 
-  lessons Lesson[]
+  lessons       Lesson[]
+  groupStudents GroupSlotStudent[]
 }
 
 model Student {
@@ -73,6 +76,7 @@ model Student {
   telegramId     String?
   telegramHandle String?
   lessonPrice              Int
+  groupLessonPrice         Int?
   paymentOffset            Int
   balanceAdjustmentKopecks Int      @default(0) // manual correction to computed balance
   sendPaymentReminder      Boolean  @default(true) // send Telegram payment reminder after each lesson
@@ -83,6 +87,19 @@ model Student {
   payments        Payment[]
   paymentRequests PaymentRequest[]
   slots           AvailabilitySlot[]
+  groupSlots      GroupSlotStudent[]
+}
+
+model GroupSlotStudent {
+  id        String           @id @default(cuid())
+  slotId    String
+  slot      AvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([slotId, studentId])
+  @@index([slotId])
+  @@index([studentId])
 }
 
 model Lesson {
@@ -133,6 +150,28 @@ model NotificationLog {
   type        String   // "lesson_reminder" | "payment_reminder" | "payment_confirmed" | "payment_request"
   text        String
   sentAt      DateTime @default(now())
+}
+
+model AppSettings {
+  key   String @id
+  value String
+}
+
+model SubscriptionPayment {
+  id          String    @id @default(cuid())
+  teacherId   String
+  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  amountBase  Int
+  amountTotal Int
+  offset      Int
+  addDays     Int
+  status      String    @default("PENDING")
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  confirmedAt DateTime?
+
+  @@index([teacherId])
+  @@index([offset, status])
 }
 
 model Payment {

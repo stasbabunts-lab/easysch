@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminToken, ADMIN_COOKIE } from "@/lib/admin-auth";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
-
-function requireAdmin(req: NextRequest) {
-  const token = req.cookies.get(ADMIN_COOKIE)?.value;
-  return token && verifyAdminToken(token);
-}
 
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH: add days to subscription, or set specific date
 export async function PATCH(req: NextRequest, { params }: Params) {
-  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!await isAdminAuthenticated()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const { addDays, setDate } = await req.json();
@@ -44,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 // DELETE: revoke subscription immediately
 export async function DELETE(req: NextRequest, { params }: Params) {
-  if (!requireAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!await isAdminAuthenticated()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const updated = await prisma.teacher.update({

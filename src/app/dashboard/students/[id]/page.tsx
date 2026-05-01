@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
 import { StudentActions } from "@/components/students/StudentActions";
-import { PriceField, NotesField } from "@/components/students/StudentEditableFields";
+import { PriceField, GroupPriceField, NotesField } from "@/components/students/StudentEditableFields";
+import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { MessageCircle } from "lucide-react";
 
 function fmtDate(d: Date) {
@@ -51,11 +52,13 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             <h1 className="text-xl md:text-2xl font-bold truncate">{student.name}</h1>
             <div className="flex items-center gap-3 flex-wrap">
               <PriceField studentId={student.id} lessonPrice={student.lessonPrice} />
+              <GroupPriceField studentId={student.id} groupLessonPrice={student.groupLessonPrice} />
               {student.telegramId && (
                 <span className="flex items-center gap-1 text-xs text-primary">
                   <MessageCircle className="h-3 w-3" /> Telegram
                 </span>
               )}
+              <PaymentReminderToggle studentId={student.id} enabled={student.sendPaymentReminder} />
             </div>
           </div>
         </div>

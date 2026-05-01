@@ -9,7 +9,7 @@ export async function GET(
 
   const teacher = await prisma.teacher.findUnique({
     where: { code: teacherCode.toUpperCase() },
-    select: { name: true, timezone: true, telegramUsername: true, phone: true },
+    select: { name: true, displayName: true, timezone: true, telegramUsername: true, phone: true },
   });
 
   if (!teacher) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,7 +35,7 @@ export async function GET(
   });
 
   return NextResponse.json({
-    teacherName: teacher.name,
+    teacherName: teacher.displayName ?? teacher.name,
     telegramUsername: teacher.telegramUsername ?? null,
     phone: teacher.phone ?? null,
     slots: slots.map((s) => ({

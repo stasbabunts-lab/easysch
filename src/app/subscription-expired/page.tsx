@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 import { APP_NAME } from "@/lib/labels";
 
 export default async function SubscriptionExpiredPage() {
@@ -38,9 +39,12 @@ export default async function SubscriptionExpiredPage() {
             <p className="font-medium">{teacher?.name}</p>
             <p className="text-muted-foreground text-xs">{teacher?.email}</p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Для продовження підписки зверніться до адміністратора.
-          </p>
+          <Link
+            href="/subscribe"
+            className="block w-full text-center bg-primary text-primary-foreground font-semibold py-2.5 rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Продовжити підписку
+          </Link>
         </CardContent>
       </Card>
     </div>

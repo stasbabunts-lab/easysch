@@ -1,6 +1,7 @@
 import { Bot } from "grammy";
 import { prisma } from "@/lib/prisma";
 import { formatAmount } from "@/lib/format";
+import { sendTelegramMessage } from "@/lib/bot/reminders";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -15,6 +16,11 @@ function getBot(): Bot {
   return _bot;
 }
 export { getBot as bot };
+
+/** Returns displayName if set, otherwise name */
+function tName(teacher: { name: string; displayName?: string | null }) {
+  return teacher.displayName?.trim() || teacher.name;
+}
 
 function registerHandlers(bot: Bot) {
 
@@ -46,7 +52,7 @@ bot.command("start", async (ctx) => {
       data: { telegramChatId: telegramId },
     });
     await ctx.reply(
-      `✅ Готово! Ви прив'язали Telegram як спеціаліст <b>${teacher.name}</b>.\n\n` +
+      `✅ Готово! Ви прив'язали Telegram як спеціаліст <b>${tName(teacher)}</b>.\n\n` +
         `Тепер ви будете отримувати нагадування про заняття.\n\n` +
         `Команди:\n` +
         `/today — заняття сьогодні\n` +
@@ -61,7 +67,7 @@ bot.command("start", async (ctx) => {
   // ── Look up by STUDENT code ───────────────────────────────────────
   const student = await prisma.student.findUnique({
     where: { code: args },
-    include: { teacher: { select: { name: true } } },
+    include: { teacher: { select: { name: true, displayName: true, telegramChatId: true } } },
   });
 
   if (!student) {
@@ -73,7 +79,7 @@ bot.command("start", async (ctx) => {
 
   // Already linked to THIS telegram — just confirm
   if (student.telegramId === telegramId) {
-    await ctx.reply(`ℹ️ Розклад <b>${student.teacher.name}</b> вже додано.`, { parse_mode: "HTML" });
+    await ctx.reply(`ℹ️ Розклад <b>${tName(student.teacher)}</b> вже додано.`, { parse_mode: "HTML" });
     return;
   }
 
@@ -88,10 +94,19 @@ bot.command("start", async (ctx) => {
     data: { telegramId, telegramHandle: handle },
   });
 
+  // Notify teacher that student connected
+  if (student.teacher.telegramChatId) {
+    const tgHandle = handle ? ` (@${handle})` : "";
+    await sendTelegramMessage(
+      student.teacher.telegramChatId,
+      `🔔 <b>${student.name}</b>${tgHandle} підключив(ла) Telegram бот.`
+    ).catch(() => null);
+  }
+
   const allLinked = await prisma.student.count({ where: { telegramId } });
 
   await ctx.reply(
-    `✅ Додано розклад <b>${student.teacher.name}</b>!\n\n` +
+    `✅ Додано розклад <b>${tName(student.teacher)}</b>!\n\n` +
       (allLinked > 1 ? `У вас ${allLinked} спеціаліста. Список: /my\n\n` : "") +
       `Команди:\n` +
       `/next — найближче заняття\n` +
@@ -107,7 +122,7 @@ bot.command("start", async (ctx) => {
 async function getLinkedStudents(telegramId: string) {
   return prisma.student.findMany({
     where: { telegramId },
-    include: { teacher: { select: { name: true, paymentDetails: true } } },
+    include: { teacher: { select: { name: true, displayName: true, paymentDetails: true } } },
     orderBy: { createdAt: "asc" },
   });
 }
@@ -139,7 +154,7 @@ bot.command("balance", async (ctx) => {
     const totalPaid = payments.reduce((s, p) => s + p.amountReceived, 0);
     const totalOwed = requests.reduce((s, r) => s + r.amountTotal, 0);
     sections.push(
-      specialistHeader(student.teacher.name, students.length, i) +
+      specialistHeader(tName(student.teacher), students.length, i) +
       `Оплачено: ${formatAmount(totalPaid)}\nОчікує: ${formatAmount(totalOwed)}`
     );
   }
@@ -168,7 +183,7 @@ bot.command("lessons", async (ctx) => {
       orderBy: { date: "asc" },
       take: 5,
     });
-    const header = specialistHeader(student.teacher.name, students.length, i);
+    const header = specialistHeader(tName(student.teacher), students.length, i);
     if (slots.length === 0) {
       sections.push(header + "Занять немає");
       continue;
@@ -343,7 +358,7 @@ bot.command("next", async (ctx) => {
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
     if (slot) {
-      const candidate = { date: slot.date, startTime: slot.startTime, endTime: slot.endTime, specialistName: student.teacher.name };
+      const candidate = { date: slot.date, startTime: slot.startTime, endTime: slot.endTime, specialistName: tName(student.teacher) };
       if (!nearest || slot.date < nearest.date || (slot.date === nearest.date && slot.startTime < nearest.startTime)) {
         nearest = candidate;
       }
@@ -386,13 +401,13 @@ bot.command("pay", async (ctx) => {
 
     if (!request && !paymentDetails) {
       sections.push(
-        specialistHeader(student.teacher.name, students.length, i) +
+        specialistHeader(tName(student.teacher), students.length, i) +
         "Активного запиту немає."
       );
       continue;
     }
 
-    let section = specialistHeader(student.teacher.name, students.length, i);
+    let section = specialistHeader(tName(student.teacher), students.length, i);
 
     if (request) {
       section += `Переведіть рівно: <b>${formatAmount(request.amountTotal)}</b>\n`;
@@ -459,7 +474,7 @@ bot.command("unlink", async (ctx) => {
   });
 
   await ctx.reply(
-    `✅ Розклад <b>${student.teacher.name}</b> відв'язано. Повідомлення більше не будуть надходити.`,
+    `✅ Розклад <b>${tName(student.teacher)}</b> відв'язано. Повідомлення більше не будуть надходити.`,
     { parse_mode: "HTML" }
   );
 });

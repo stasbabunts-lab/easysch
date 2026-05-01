@@ -9,6 +9,7 @@ import { formatAmount } from "@/lib/format";
 interface Props {
   studentId: string;
   lessonPrice: number;   // kopecks
+  groupLessonPrice: number | null;
   notes: string | null;
 }
 
@@ -94,6 +95,94 @@ function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice
       </span>
       <span className="text-sm text-muted-foreground">/ заняття</span>
       <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover/price:text-muted-foreground transition-colors" />
+    </button>
+  );
+}
+
+// ── Inline group price ─────────────────────────────────────────────────────────
+
+export function GroupPriceField({ studentId, groupLessonPrice }: { studentId: string; groupLessonPrice: number | null }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(groupLessonPrice ? String(groupLessonPrice / 100) : "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit() {
+    setValue(groupLessonPrice ? String(groupLessonPrice / 100) : "");
+    setEditing(true);
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setValue(groupLessonPrice ? String(groupLessonPrice / 100) : "");
+  }
+
+  async function save() {
+    const trimmed = value.trim();
+    const num = trimmed ? parseFloat(trimmed.replace(",", ".")) : null;
+    if (trimmed && (!num || num <= 0)) { cancel(); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupLessonPrice: num }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Ціну групового заняття оновлено");
+      setEditing(false);
+      router.refresh();
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") cancel();
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <input
+          ref={inputRef}
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKey}
+          min="1"
+          step="50"
+          disabled={saving}
+          placeholder="не задано"
+          className="w-24 h-7 px-2 text-sm font-semibold border border-primary rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <span className="text-sm text-muted-foreground">/ група</span>
+        <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 transition-colors" title="Зберегти">
+          <Check className="h-4 w-4" />
+        </button>
+        <button onClick={cancel} className="text-muted-foreground hover:text-foreground transition-colors" title="Скасувати">
+          <X className="h-4 w-4" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      className="group/gprice inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 -mx-2 hover:bg-muted/60 transition-colors"
+      title="Натисніть щоб змінити ціну групового заняття"
+    >
+      <span className="text-sm font-semibold text-foreground underline decoration-dashed decoration-muted-foreground/40 underline-offset-2">
+        {groupLessonPrice ? formatAmount(groupLessonPrice) : "—"}
+      </span>
+      <span className="text-sm text-muted-foreground">/ група</span>
+      <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover/gprice:text-muted-foreground transition-colors" />
     </button>
   );
 }

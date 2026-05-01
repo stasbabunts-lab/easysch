@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Blue background -->
+  <rect width="32" height="32" rx="7" fill="#3b6ef0"/>
+  <!-- Tablet body -->
+  <rect x="8" y="5" width="16" height="22" rx="2.5" stroke="white" stroke-width="2" fill="none"/>
+  <!-- Screen -->
+  <rect x="10.5" y="7.5" width="11" height="13.5" rx="1" stroke="white" stroke-width="1.5" fill="none"/>
+  <!-- Home bar -->
+  <line x1="13" y1="24" x2="19" y2="24" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

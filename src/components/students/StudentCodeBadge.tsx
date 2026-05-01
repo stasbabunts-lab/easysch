@@ -16,22 +16,17 @@ export function StudentCodeBadge({ code }: { code: string }) {
   }
 
   return (
-    <div
-      className="flex items-center gap-1 font-mono text-[11px] font-semibold text-primary bg-primary/8 pl-2 pr-1 py-0.5 rounded tracking-wider"
-      title="Личный код клиента для Telegram бота"
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 font-mono text-xs font-semibold text-primary bg-primary/8 pl-2.5 pr-2 py-1 rounded tracking-wider hover:bg-primary/15 transition-colors cursor-pointer"
+      title="Скопіювати код"
     >
       {code}
-      <button
-        onClick={handleCopy}
-        className="ml-0.5 p-0.5 rounded hover:bg-primary/15 transition-colors"
-        title="Скопировать код"
-      >
-        {copied ? (
-          <Check className="h-3 w-3 text-emerald-500" />
-        ) : (
-          <Copy className="h-3 w-3 text-primary/60 hover:text-primary" />
-        )}
-      </button>
-    </div>
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+      ) : (
+        <Copy className="h-3.5 w-3.5 text-primary/60 shrink-0" />
+      )}
+    </button>
   );
 }

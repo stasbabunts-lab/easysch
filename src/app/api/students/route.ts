@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, lessonPrice, notes } = await req.json();
+  const { name, lessonPrice, groupLessonPrice, notes } = await req.json();
   if (!name || !lessonPrice) {
     return NextResponse.json({ error: "Имя и цена обязательны" }, { status: 400 });
   }
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       name,
       code,
       lessonPrice: Math.round(Number(lessonPrice) * 100),
+      groupLessonPrice: groupLessonPrice ? Math.round(Number(groupLessonPrice) * 100) : null,
       paymentOffset,
       notes: notes || null,
       teacherId: session.user.id,

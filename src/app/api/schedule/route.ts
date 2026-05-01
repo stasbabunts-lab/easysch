@@ -19,7 +19,10 @@ export async function GET() {
       isActive: true,
       date: { gte: today, lte: in90Days },
     },
-    include: { student: { select: { id: true, name: true } } },
+    include: {
+      student: { select: { id: true, name: true, createdAt: true } },
+      groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
+    },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
 
@@ -32,43 +35,69 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { date, startTime, endTime, durationMin = 60, isRecurring = false, studentId } = body;
+  const { date, startTime, endTime, durationMin = 60, isRecurring = false, studentId, isGroup = false, studentIds = [] } = body;
 
   if (!date || !startTime || !endTime) {
     return NextResponse.json({ error: "date, startTime, endTime required" }, { status: 400 });
   }
 
+  const slotInclude = {
+    student: { select: { id: true, name: true, createdAt: true } },
+    groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
+  };
+
   if (isRecurring) {
-    // Create 13 weekly instances (~3 months)
     const groupId = randomUUID();
     const instances = buildWeeklyInstances(date, startTime, endTime, durationMin, groupId, 13);
     await prisma.availabilitySlot.createMany({
       data: instances.map((inst) => ({
         teacherId: session.user.id,
         ...inst,
-        studentId: studentId || null,
+        isGroup,
+        studentId: isGroup ? null : (studentId || null),
         isActive: true,
       })),
     });
     const created = await prisma.availabilitySlot.findMany({
       where: { teacherId: session.user.id, recurringGroupId: groupId },
-      include: { student: { select: { id: true, name: true } } },
+      include: slotInclude,
       orderBy: { date: "asc" },
     });
+    if (isGroup && studentIds.length > 0) {
+      await prisma.groupSlotStudent.createMany({
+        data: created.flatMap((slot) =>
+          (studentIds as string[]).map((sid) => ({ slotId: slot.id, studentId: sid }))
+        ),
+      });
+      const withGroup = await prisma.availabilitySlot.findMany({
+        where: { recurringGroupId: groupId },
+        include: slotInclude,
+        orderBy: { date: "asc" },
+      });
+      return NextResponse.json(withGroup, { status: 201 });
+    }
     return NextResponse.json(created, { status: 201 });
   } else {
     const slot = await prisma.availabilitySlot.create({
       data: {
         teacherId: session.user.id,
-        date,
-        startTime,
-        endTime,
-        durationMin,
+        date, startTime, endTime, durationMin,
         isRecurring: false,
-        studentId: studentId || null,
+        isGroup,
+        studentId: isGroup ? null : (studentId || null),
       },
-      include: { student: { select: { id: true, name: true } } },
+      include: slotInclude,
     });
+    if (isGroup && studentIds.length > 0) {
+      await prisma.groupSlotStudent.createMany({
+        data: (studentIds as string[]).map((sid) => ({ slotId: slot.id, studentId: sid })),
+      });
+      const withGroup = await prisma.availabilitySlot.findUnique({
+        where: { id: slot.id },
+        include: slotInclude,
+      });
+      return NextResponse.json([withGroup], { status: 201 });
+    }
     return NextResponse.json([slot], { status: 201 });
   }
 }
@@ -124,6 +153,7 @@ export async function extendExpiringSeries(teacherId: string) {
 
     const last = await prisma.availabilitySlot.findFirst({
       where: { recurringGroupId: g.recurringGroupId, date: g._max.date ?? undefined },
+      include: { groupStudents: { select: { studentId: true } } },
     });
     if (!last) continue;
 
@@ -142,9 +172,22 @@ export async function extendExpiringSeries(teacherId: string) {
       data: instances.map((inst) => ({
         teacherId,
         ...inst,
+        isGroup: last.isGroup,
         studentId: last.studentId,
         isActive: true,
       })),
     });
+
+    if (last.isGroup && last.groupStudents.length > 0) {
+      const newSlots = await prisma.availabilitySlot.findMany({
+        where: { recurringGroupId: last.recurringGroupId!, date: { gte: nextDate.toISOString().slice(0, 10) } },
+        select: { id: true },
+      });
+      await prisma.groupSlotStudent.createMany({
+        data: newSlots.flatMap((slot) =>
+          last.groupStudents.map((gs) => ({ slotId: slot.id, studentId: gs.studentId }))
+        ),
+      });
+    }
   }
 }

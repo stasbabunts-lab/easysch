@@ -10,28 +10,45 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const teacherId = session.user.id;
-  const today = new Date().toISOString().slice(0, 10);
 
-  // "Active" = student has at least one slot within the last 60 days OR in the future
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 60);
-  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);          // "YYYY-MM-DD" UTC
+  const currentTime = now.toISOString().slice(11, 16);  // "HH:MM" UTC
+
+  // "Active" = student has a slot in the last 60 days / future, OR has at least one payment
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const thirtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
 
   const students = await prisma.student.findMany({
     where: {
       teacherId,
-      slots: {
-        some: {
-          isActive: true,
-          date: { gte: thirtyDaysAgoStr },
+      OR: [
+        {
+          slots: {
+            some: {
+              isActive: true,
+              date: { gte: thirtyDaysAgoStr },
+            },
+          },
         },
-      },
+        {
+          payments: { some: {} },
+        },
+      ],
     },
     include: {
-      // Past slots assigned to this student (= conducted lessons count)
+      // Conducted slots: past days + today's slots whose startTime has already passed
       slots: {
-        where: { isActive: true, date: { lte: today } },
-        select: { id: true },
+        where: {
+          isActive: true,
+          OR: [
+            { date: { lt: today } },
+            { date: today, startTime: { lte: currentTime } },
+          ],
+        },
+        select: { id: true, date: true },
+        orderBy: { date: "desc" },
       },
       // All non-ignored payments received from this student
       payments: {
@@ -39,7 +56,7 @@ export async function GET() {
         select: { amountReceived: true },
       },
     },
-    orderBy: { paymentOffset: "asc" },
+    orderBy: { createdAt: "asc" }, // stable fallback
   });
 
   const clients = students.map((s) => {
@@ -56,6 +73,9 @@ export async function GET() {
     const computedBalance = totalPaid - totalOwed;
     const effectiveBalance = computedBalance + s.balanceAdjustmentKopecks;
 
+    // Most recent conducted slot date (slots are already ordered desc)
+    const lastSlotDate = s.slots[0]?.date ?? null;
+
     return {
       id: s.id,
       name: s.name,
@@ -69,7 +89,16 @@ export async function GET() {
       balanceAdjustmentKopecks: s.balanceAdjustmentKopecks,
       credit: effectiveBalance > 0 ? effectiveBalance : 0,
       debt: effectiveBalance < 0 ? -effectiveBalance : 0,
+      lastSlotDate,
     };
+  });
+
+  // Sort by most recent conducted lesson descending; clients with no lessons go last
+  clients.sort((a, b) => {
+    if (!a.lastSlotDate && !b.lastSlotDate) return 0;
+    if (!a.lastSlotDate) return 1;
+    if (!b.lastSlotDate) return -1;
+    return b.lastSlotDate.localeCompare(a.lastSlotDate);
   });
 
   // Transaction history — all payments including ignored ones

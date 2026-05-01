@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ShieldCheck, Users, LogOut, Plus, Minus, Calendar,
-  MessageCircle, BookOpen,
+  MessageCircle, BookOpen, Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +29,144 @@ function subStatus(expiresAt: Date | string | null): { label: string; variant: "
   if (diff <= 0) return { label: "Закінчилась", variant: "destructive", daysLeft: 0 };
   if (diff <= 7) return { label: `${diff} дн`, variant: "outline", daysLeft: diff };
   return { label: `${diff} дн`, variant: "secondary", daysLeft: diff };
+}
+
+interface SubSettings {
+  subscription_price_kopecks: string;
+  subscription_period_days: string;
+  subscription_card_number: string;
+  subscription_telegram: string;
+  subscription_monobank_token_set: boolean;
+}
+
+function SubscriptionSettings() {
+  const [settings, setSettings] = useState<SubSettings>({
+    subscription_price_kopecks: "8000",
+    subscription_period_days: "30",
+    subscription_card_number: "",
+    subscription_telegram: "https://t.me/babunts",
+    subscription_monobank_token_set: false,
+  });
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((data) => setSettings(data))
+      .catch(() => {});
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const body: Record<string, string> = {
+        subscription_price_kopecks: String(Math.round(parseFloat(settings.subscription_price_kopecks) / 100 * 100) || 8000),
+        subscription_period_days: settings.subscription_period_days,
+        subscription_card_number: settings.subscription_card_number,
+        subscription_telegram: settings.subscription_telegram,
+      };
+      if (token) body.subscription_monobank_token = token;
+
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      if (token) {
+        setSettings((s) => ({ ...s, subscription_monobank_token_set: true }));
+        setToken("");
+      }
+      toast.success("Збережено");
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const priceUah = Math.round(parseInt(settings.subscription_price_kopecks) / 100) || 80;
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Settings className="h-4 w-4" /> Налаштування підписки
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Ціна за 30 днів (грн)</label>
+            <Input
+              type="number"
+              min="1"
+              value={priceUah}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  subscription_price_kopecks: String(Math.round(parseFloat(e.target.value) * 100)),
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Днів за одну оплату</label>
+            <Input
+              type="number"
+              min="1"
+              value={settings.subscription_period_days}
+              onChange={(e) =>
+                setSettings((s) => ({ ...s, subscription_period_days: e.target.value }))
+              }
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Картка для оплат</label>
+          <Input
+            placeholder="4441 1144 XXXX XXXX"
+            value={settings.subscription_card_number}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, subscription_card_number: e.target.value }))
+            }
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">
+            Monobank API token{" "}
+            {settings.subscription_monobank_token_set && (
+              <span className="text-emerald-600">(встановлено)</span>
+            )}
+          </label>
+          <Input
+            type="password"
+            placeholder={settings.subscription_monobank_token_set ? "••••••••••••" : "Вставте токен"}
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Telegram-посилання (кнопка «Написати»)</label>
+          <Input
+            placeholder="https://t.me/username"
+            value={settings.subscription_telegram}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, subscription_telegram: e.target.value }))
+            }
+          />
+        </div>
+
+        <Button onClick={save} disabled={saving} size="sm">
+          {saving ? "Збереження..." : "Зберегти"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function AdminDashboard({ teachers: initial }: { teachers: Teacher[] }) {
@@ -128,6 +266,8 @@ export function AdminDashboard({ teachers: initial }: { teachers: Teacher[] }) {
             </CardContent>
           </Card>
         </div>
+
+        <SubscriptionSettings />
 
         {/* Teachers list */}
         <Card className="border-border/50">

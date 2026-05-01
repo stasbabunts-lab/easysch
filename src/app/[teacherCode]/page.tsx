@@ -143,16 +143,9 @@ export default async function PublicSchedulePage({
           </div>
         )}
 
-        <div className="text-center pt-4 space-y-2">
+        <div className="text-center pt-4">
           <p className="text-sm text-muted-foreground">
             Щоб записатися — зв&apos;яжіться з {data.teacherName} особисто.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Для сповіщень у Telegram введіть{" "}
-            <code className="bg-muted px-1.5 py-0.5 rounded text-primary font-mono">
-              /start ВАШ_КОД
-            </code>{" "}
-            боту.
           </p>
         </div>
       </div>

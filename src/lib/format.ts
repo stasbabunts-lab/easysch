@@ -6,6 +6,11 @@ export function formatAmount(kopecks: number): string {
   });
 }
 
+/** Format kopecks as whole number "1 500" (no decimals) */
+export function formatAmountWhole(kopecks: number): string {
+  return Math.round(kopecks / 100).toLocaleString("uk-UA");
+}
+
 /** Display format: "01", "02", ..., "99", "101", "102", ... */
 export function formatOffset(offset: number): string {
   if (offset < 100) return offset.toString().padStart(2, "0");

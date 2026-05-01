@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   Copy, Check, ExternalLink, Bell, MessageCircle,
   Building2, ShieldCheck, Plus, Trash2, Eye, EyeOff,
-  Info, ToggleLeft, ToggleRight, CreditCard, Phone,
+  Info, ToggleLeft, ToggleRight, Phone,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/labels";
@@ -22,7 +22,8 @@ interface TeacherSettings {
   telegramChatId: string | null;
   telegramUsername: string;
   phone: string;
-  paymentDetails: string;
+  name: string;
+  displayName: string;
 }
 
 interface BankAccount {
@@ -41,11 +42,12 @@ export default function SettingsPage() {
     telegramChatId: null,
     telegramUsername: "",
     phone: "",
-    paymentDetails: "",
+    name: "",
+    displayName: "",
   });
   const [savingContacts, setSavingContacts] = useState(false);
   const [savingReminders, setSavingReminders] = useState(false);
-  const [savingPayment, setSavingPayment] = useState(false);
+  const [savingDisplay, setSavingDisplay] = useState(false);
 
   // Bank accounts
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -70,7 +72,8 @@ export default function SettingsPage() {
           telegramChatId: data.telegramChatId ?? null,
           telegramUsername: data.telegramUsername ?? "",
           phone: data.phone ?? "",
-          paymentDetails: data.paymentDetails ?? "",
+          name: data.name ?? "",
+          displayName: data.displayName ?? "",
         });
       })
       .catch(() => null);
@@ -93,6 +96,25 @@ export default function SettingsPage() {
     toast.success("Посилання скопійовано");
   }
 
+  async function saveDisplayName(e: React.FormEvent) {
+    e.preventDefault();
+    if (!settings.name.trim()) { toast.error("Ім'я не може бути порожнім"); return; }
+    setSavingDisplay(true);
+    try {
+      const res = await fetch("/api/teachers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: settings.name.trim(), displayName: settings.displayName }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Збережено");
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setSavingDisplay(false);
+    }
+  }
+
   async function saveContacts(e: React.FormEvent) {
     e.preventDefault();
     setSavingContacts(true);
@@ -108,24 +130,6 @@ export default function SettingsPage() {
       toast.error("Помилка збереження");
     } finally {
       setSavingContacts(false);
-    }
-  }
-
-  async function savePaymentDetails(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingPayment(true);
-    try {
-      const res = await fetch("/api/teachers", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentDetails: settings.paymentDetails }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Реквізити збережено");
-    } catch {
-      toast.error("Помилка збереження");
-    } finally {
-      setSavingPayment(false);
     }
   }
 
@@ -236,6 +240,43 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Display name */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Ім&apos;я та назва</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={saveDisplayName} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Ваше ім&apos;я</Label>
+              <p className="text-xs text-muted-foreground">
+                Використовується в повідомленнях Telegram бота клієнтам.
+              </p>
+              <Input
+                value={settings.name}
+                onChange={(e) => setSettings((s) => ({ ...s, name: e.target.value }))}
+                placeholder="Ім'я або прізвище"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Назва для клієнтів <span className="text-muted-foreground font-normal">(необов&apos;язково)</span></Label>
+              <p className="text-xs text-muted-foreground">
+                Якщо заповнено — замінює ім&apos;я на публічній сторінці розкладу та в боті.
+              </p>
+              <Input
+                value={settings.displayName}
+                onChange={(e) => setSettings((s) => ({ ...s, displayName: e.target.value }))}
+                placeholder="Наприклад: Школа англійської Smile"
+              />
+            </div>
+            <Button type="submit" disabled={savingDisplay}>
+              {savingDisplay ? "Зберігаємо..." : "Зберегти"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
       {/* Telegram */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -300,33 +341,6 @@ export default function SettingsPage() {
             </div>
             <Button type="submit" disabled={savingContacts}>
               {savingContacts ? "Зберігаємо..." : "Зберегти контакти"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Payment details */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Реквізити для оплати
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={savePaymentDetails} className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Ці дані клієнт побачить у Telegram після команди <code className="bg-muted px-1 rounded">/pay</code> і в автоматичному повідомленні після завершення заняття.
-            </p>
-            <textarea
-              value={settings.paymentDetails}
-              onChange={(e) => setSettings((s) => ({ ...s, paymentDetails: e.target.value }))}
-              rows={4}
-              placeholder={"Monobank: 4441 1111 2222 3333\nPrivatBank: +38 050 000 00 00\nІм'я: Іванов Іван"}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
-            />
-            <Button type="submit" disabled={savingPayment}>
-              {savingPayment ? "Зберігаємо..." : "Зберегти реквізити"}
             </Button>
           </form>
         </CardContent>

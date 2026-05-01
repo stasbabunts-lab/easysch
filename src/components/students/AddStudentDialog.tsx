@@ -46,6 +46,7 @@ export function AddStudentDialog() {
       body: JSON.stringify({
         name,
         lessonPrice: fd.get("lessonPrice"),
+        groupLessonPrice: fd.get("groupLessonPrice") || undefined,
         notes: fd.get("notes"),
       }),
     });
@@ -102,6 +103,10 @@ export function AddStudentDialog() {
                 <div className="space-y-2">
                   <Label>Ціна заняття</Label>
                   <Input name="lessonPrice" type="number" min="1" step="1" placeholder="1500" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ціна групового заняття <span className="text-muted-foreground font-normal">(необов&apos;язково)</span></Label>
+                  <Input name="groupLessonPrice" type="number" min="1" step="1" placeholder="800" />
                 </div>
                 <div className="space-y-2">
                   <Label>Нотатки (необов&apos;язково)</Label>

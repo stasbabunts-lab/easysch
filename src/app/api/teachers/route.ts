@@ -1,31 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { generateUniqueTeacherCode } from "@/lib/teacher-code";
 import { auth } from "@/lib/auth";
 
-export async function POST(req: NextRequest) {
-  try {
-    const { name, email, password } = await req.json();
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: "Заполните все поля" }, { status: 400 });
-    }
-    const exists = await prisma.teacher.findUnique({ where: { email } });
-    if (exists) {
-      return NextResponse.json({ error: "Email уже зарегистрирован" }, { status: 409 });
-    }
-    const passwordHash = await bcrypt.hash(password, 12);
-    const code = await generateUniqueTeacherCode();
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 14);
-    const teacher = await prisma.teacher.create({
-      data: { name, email, passwordHash, code, subscriptionExpiresAt: trialEnd },
-      select: { id: true, email: true, name: true, code: true },
-    });
-    return NextResponse.json(teacher, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
-  }
+// Email registration is disabled — use Google sign-in
+export async function POST() {
+  return NextResponse.json({ error: "Registration via email is disabled" }, { status: 403 });
 }
 
 // PATCH: update teacher settings
@@ -34,9 +13,9 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { teacherReminderMinutes, studentReminderMinutes, name, paymentDetails, telegramUsername, phone } = body;
+  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, telegramUsername, phone, paymentMinAmount, paymentMaxAmount } = body;
 
-  const data: Record<string, string | null> = {};
+  const data: Record<string, string | number | null> = {};
 
   if (teacherReminderMinutes !== undefined) {
     const parsed = String(teacherReminderMinutes)
@@ -53,9 +32,13 @@ export async function PATCH(req: NextRequest) {
     data.studentReminderMinutes = parsed.join(",") || "60";
   }
   if (name !== undefined) data.name = name;
+  if (displayName !== undefined) data.displayName = displayName?.trim() || null;
   if (paymentDetails !== undefined) data.paymentDetails = paymentDetails?.trim() || null;
+  if (postLessonNote !== undefined) data.postLessonNote = postLessonNote?.trim() || null;
   if (telegramUsername !== undefined) data.telegramUsername = telegramUsername?.replace(/^@/, "").trim() || null;
   if (phone !== undefined) data.phone = phone?.trim() || null;
+  if (paymentMinAmount !== undefined) data.paymentMinAmount = paymentMinAmount === null || paymentMinAmount === "" ? null : Math.round(Number(paymentMinAmount) * 100);
+  if (paymentMaxAmount !== undefined) data.paymentMaxAmount = paymentMaxAmount === null || paymentMaxAmount === "" ? null : Math.round(Number(paymentMaxAmount) * 100);
 
   const updated = await prisma.teacher.update({
     where: { id: session.user.id },
@@ -63,12 +46,16 @@ export async function PATCH(req: NextRequest) {
     select: {
       id: true,
       name: true,
+      displayName: true,
       teacherReminderMinutes: true,
       studentReminderMinutes: true,
       telegramChatId: true,
       telegramUsername: true,
       phone: true,
       paymentDetails: true,
+      postLessonNote: true,
+      paymentMinAmount: true,
+      paymentMaxAmount: true,
     },
   });
 
@@ -85,6 +72,7 @@ export async function GET() {
     select: {
       id: true,
       name: true,
+      displayName: true,
       email: true,
       code: true,
       teacherReminderMinutes: true,
@@ -93,6 +81,9 @@ export async function GET() {
       telegramUsername: true,
       phone: true,
       paymentDetails: true,
+      postLessonNote: true,
+      paymentMinAmount: true,
+      paymentMaxAmount: true,
     },
   });
 
