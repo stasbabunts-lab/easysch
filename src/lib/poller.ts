@@ -311,7 +311,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
       const sentReminderText = await sendPostLessonPaymentReminder(
         slot.student.telegramId,
-        teacher.paymentDetails ?? "",
+        slot.student.paymentDetails ?? teacher.paymentDetails ?? "",
         request?.amountTotal,
         teacher.postLessonNote
       ).catch(() => null);
@@ -361,7 +361,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
         const sentGroupReminderText = await sendPostLessonPaymentReminder(
           student.telegramId,
-          teacher.paymentDetails ?? "",
+          student.paymentDetails ?? teacher.paymentDetails ?? "",
           amount,
           teacher.postLessonNote
         ).catch(() => null);

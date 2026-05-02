@@ -80,6 +80,7 @@ model Student {
   paymentOffset            Int
   balanceAdjustmentKopecks Int      @default(0) // manual correction to computed balance
   sendPaymentReminder      Boolean  @default(true) // send Telegram payment reminder after each lesson
+  paymentDetails           String?  // overrides teacher.paymentDetails for this student
   notes                    String?
   createdAt      DateTime @default(now())
 

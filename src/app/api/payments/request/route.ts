@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     include: { teacher: { select: { paymentDetails: true, postLessonNote: true } } },
   });
   if (!student) return NextResponse.json({ error: "Клиент не найден" }, { status: 404 });
-  if (!student.teacher.paymentDetails) {
+  const effectivePaymentDetails = student.paymentDetails ?? student.teacher.paymentDetails;
+  if (!effectivePaymentDetails) {
     return NextResponse.json({ error: "Спочатку заповніть реквізити для оплати в налаштуваннях" }, { status: 400 });
   }
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (!silent && student.telegramId) {
     const sentText = await sendPaymentRequestNotification(
       student.telegramId,
-      student.teacher.paymentDetails!,
+      effectivePaymentDetails,
       amountTotal,
       student.teacher.postLessonNote,
     ).catch(() => null);

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
 import { StudentActions } from "@/components/students/StudentActions";
-import { PriceField, GroupPriceField, NotesField } from "@/components/students/StudentEditableFields";
+import { PriceField, GroupPriceField, NotesField, PaymentDetailsField } from "@/components/students/StudentEditableFields";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { MessageCircle } from "lucide-react";
 
@@ -99,11 +99,14 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
         </div>
-        <StudentActions student={student} hasPaymentDetails={!!teacher?.paymentDetails} />
+        <StudentActions student={student} hasPaymentDetails={!!student.paymentDetails || !!teacher?.paymentDetails} />
       </div>
 
       {/* Notes */}
       <NotesField studentId={student.id} notes={student.notes} />
+
+      {/* Individual payment details */}
+      <PaymentDetailsField studentId={student.id} paymentDetails={student.paymentDetails} />
 
       {/* Balance summary — 3 cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">

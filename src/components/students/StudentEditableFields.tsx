@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, X, Pencil, StickyNote } from "lucide-react";
+import { Check, X, Pencil, StickyNote, CreditCard } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 
 interface Props {
@@ -288,6 +288,117 @@ function NotesField({ studentId, notes }: { studentId: string; notes: string | n
             <div className="flex items-center gap-2 h-full">
               <p className="text-sm text-muted-foreground/50 italic">Нотаток немає — натисніть щоб додати</p>
               <Pencil className="h-3.5 w-3.5 text-muted-foreground/0 group-hover/notes:text-muted-foreground/50 transition-colors" />
+            </div>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Inline payment details ─────────────────────────────────────────────────────
+
+export function PaymentDetailsField({ studentId, paymentDetails }: { studentId: string; paymentDetails: string | null }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(paymentDetails ?? "");
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function startEdit() {
+    setValue(paymentDetails ?? "");
+    setEditing(true);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      const len = textareaRef.current?.value.length ?? 0;
+      textareaRef.current?.setSelectionRange(len, len);
+    }, 0);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setValue(paymentDetails ?? "");
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentDetails: value.trim() || null }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Реквізити збережено");
+      setEditing(false);
+      router.refresh();
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") save();
+    if (e.key === "Escape") cancel();
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <CreditCard className="h-3.5 w-3.5" />
+        Індивідуальні реквізити
+        {paymentDetails && (
+          <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">активні</span>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKey}
+            disabled={saving}
+            rows={3}
+            placeholder="Залиште порожнім, щоб використовувати загальні реквізити зі сторінки налаштувань..."
+            className="w-full rounded-lg border border-primary bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {saving ? "Зберігаємо..." : "Зберегти"}
+            </button>
+            <button
+              onClick={cancel}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1.5"
+            >
+              Скасувати
+            </button>
+            <span className="ml-auto text-[10px] text-muted-foreground/50">Ctrl+Enter щоб зберегти</span>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={startEdit}
+          className="group/pd w-full text-left rounded-lg border border-border/40 bg-muted/20 hover:bg-muted/40 hover:border-border/70 transition-colors px-3 py-2.5 min-h-[56px]"
+          title="Натисніть щоб редагувати реквізити"
+        >
+          {paymentDetails ? (
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{paymentDetails}</p>
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground/0 group-hover/pd:text-muted-foreground shrink-0 mt-0.5 transition-colors" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 h-full">
+              <p className="text-sm text-muted-foreground/50 italic">Не задано — використовуються загальні реквізити</p>
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground/0 group-hover/pd:text-muted-foreground/50 transition-colors" />
             </div>
           )}
         </button>
