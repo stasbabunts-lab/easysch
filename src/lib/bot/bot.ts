@@ -58,7 +58,8 @@ bot.command("start", async (ctx) => {
         `/today — заняття сьогодні\n` +
         `/week — заняття на 7 днів\n` +
         `/debts — клієнти з боргом\n` +
-        `/mystudents — список клієнтів`,
+        `/mystudents — список клієнтів\n\n` +
+        `💡 Ви також можете бути учнем інших спеціалістів — просто надішліть /start з кодом учня, який вам дасть ваш спеціаліст.`,
       { parse_mode: "HTML" }
     );
     return;
@@ -141,26 +142,43 @@ bot.command("balance", async (ctx) => {
     return;
   }
 
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const currentTime = now.toISOString().slice(11, 16);
+
   const sections: string[] = [];
   for (const [i, student] of students.entries()) {
+    const conductedCount = await prisma.availabilitySlot.count({
+      where: {
+        studentId: student.id,
+        isActive: true,
+        OR: [
+          { date: { lt: today } },
+          { date: today, startTime: { lte: currentTime } },
+        ],
+      },
+    });
     const payments = await prisma.payment.findMany({
-      where: { studentId: student.id },
+      where: { studentId: student.id, isIgnored: false },
       select: { amountReceived: true },
     });
-    const requests = await prisma.paymentRequest.findMany({
-      where: { studentId: student.id, fulfilledBy: null },
-      select: { amountTotal: true },
-    });
-    const totalPaid = payments.reduce((s, p) => s + p.amountReceived, 0);
-    const totalOwed = requests.reduce((s, r) => s + r.amountTotal, 0);
+    const totalOwed = conductedCount * student.lessonPrice;
+    const totalPaid = payments.reduce((s, p) => s + p.amountReceived - student.paymentOffset, 0);
+    const effectiveBalance = totalPaid - totalOwed + student.balanceAdjustmentKopecks;
+    const credit = Math.max(effectiveBalance, 0);
+    const debt = Math.max(-effectiveBalance, 0);
+
+    let balanceLine: string;
+    if (credit > 0) balanceLine = `✅ Баланс: +${formatAmount(credit)}`;
+    else if (debt > 0) balanceLine = `🔴 Заборгованість: ${formatAmount(debt)}`;
+    else balanceLine = `✅ Баланс: 0`;
+
     sections.push(
-      specialistHeader(tName(student.teacher), students.length, i) +
-      `Оплачено: ${formatAmount(totalPaid)}\nОчікує: ${formatAmount(totalOwed)}`
+      specialistHeader(tName(student.teacher), students.length, i) + balanceLine
     );
   }
 
   await ctx.reply(`💰 <b>Баланс</b>\n\n${sections.join("\n\n")}`, { parse_mode: "HTML" });
-
 });
 
 // ── Student: /lessons ──────────────────────────────────────────────────────────
