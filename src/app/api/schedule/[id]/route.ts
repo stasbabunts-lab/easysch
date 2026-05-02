@@ -149,7 +149,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         studentId: { not: null },
         OR: [
           { date: { lt: today } },
-          { date: today, startTime: { lte: currentTime } },
+          { date: today, endTime: { lte: currentTime } },
         ],
       },
       include: { student: { select: { id: true, lessonPrice: true, balanceAdjustmentKopecks: true } } },
@@ -185,7 +185,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     // Single slot — compensate balance if it was already conducted
     const isConducted =
       slot.studentId &&
-      (slot.date < today || (slot.date === today && slot.startTime <= currentTime));
+      (slot.date < today || (slot.date === today && slot.endTime <= currentTime));
 
     if (isConducted) {
       const student = await prisma.student.findUnique({ where: { id: slot.studentId! } });

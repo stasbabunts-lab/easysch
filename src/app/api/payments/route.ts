@@ -44,7 +44,7 @@ export async function GET() {
           isActive: true,
           OR: [
             { date: { lt: today } },
-            { date: today, startTime: { lte: currentTime } },
+            { date: today, endTime: { lte: currentTime } },
           ],
         },
         select: { id: true, date: true },

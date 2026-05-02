@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           isActive: true,
           OR: [
             { date: { lt: today } },
-            { date: today, startTime: { lte: currentTime } },
+            { date: today, endTime: { lte: currentTime } },
           ],
         },
       });

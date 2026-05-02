@@ -154,7 +154,7 @@ bot.command("balance", async (ctx) => {
         isActive: true,
         OR: [
           { date: { lt: today } },
-          { date: today, startTime: { lte: currentTime } },
+          { date: today, endTime: { lte: currentTime } },
         ],
       },
     });
