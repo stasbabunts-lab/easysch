@@ -9,10 +9,9 @@ import { PriceField, GroupPriceField, NotesField } from "@/components/students/S
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { MessageCircle } from "lucide-react";
 
-function fmtDate(d: Date) {
-  return d.toLocaleString("uk-UA", {
+function fmtDate(d: string) {
+  return new Date(d + "T00:00:00").toLocaleDateString("uk-UA", {
     day: "numeric", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
   });
 }
 
@@ -21,12 +20,34 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   if (!session) return null;
   const { id } = await params;
 
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const currentTime = now.toISOString().slice(11, 16);
+
   const [student, teacher] = await Promise.all([
     prisma.student.findFirst({
       where: { id, teacherId: session.user.id },
       include: {
-        lessons: { orderBy: { scheduledAt: "desc" }, take: 20 },
-        payments: { orderBy: { confirmedAt: "desc" } },
+        slots: {
+          where: {
+            isActive: true,
+            OR: [
+              { date: { lt: today } },
+              { date: today, startTime: { lte: currentTime } },
+            ],
+          },
+          select: { id: true, date: true, startTime: true },
+          orderBy: { date: "desc" },
+        },
+        payments: {
+          orderBy: { confirmedAt: "desc" },
+          select: {
+            id: true,
+            amountReceived: true,
+            confirmedAt: true,
+            isIgnored: true,
+          },
+        },
         paymentRequests: {
           orderBy: { createdAt: "desc" },
           include: { fulfilledBy: { select: { id: true } } },
@@ -41,8 +62,18 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound();
 
-  const totalPaid = student.payments.reduce((s, p) => s + p.amountReceived, 0);
-  const totalOwed = student.paymentRequests
+  // Real balance calculation (same formula as /api/payments)
+  const conductedCount = student.slots.length;
+  const totalOwedKopecks = conductedCount * student.lessonPrice;
+  const totalPaidKopecks = student.payments
+    .filter((p) => !p.isIgnored)
+    .reduce((s, p) => s + p.amountReceived - student.paymentOffset, 0);
+  const computedBalance = totalPaidKopecks - totalOwedKopecks;
+  const effectiveBalance = computedBalance + student.balanceAdjustmentKopecks;
+  const credit = Math.max(effectiveBalance, 0);
+  const debt = Math.max(-effectiveBalance, 0);
+
+  const openRequestsTotal = student.paymentRequests
     .filter((r) => r.fulfilledBy === null)
     .reduce((s, r) => s + r.amountBase, 0);
 
@@ -71,56 +102,97 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         <StudentActions student={student} hasPaymentDetails={!!teacher?.paymentDetails} />
       </div>
 
-      {/* Notes — full-width editable block */}
+      {/* Notes */}
       <NotesField studentId={student.id} notes={student.notes} />
 
-      {/* Balance */}
-      <div className="grid gap-4 grid-cols-2">
+      {/* Balance summary — 3 cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card className="border-border/50">
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground">Оплачено всього</p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">{formatAmount(totalPaid)}</p>
+            <p className="text-xs text-muted-foreground">Баланс</p>
+            {credit > 0 ? (
+              <p className="text-2xl font-bold text-emerald-600 mt-1">+{formatAmount(credit)}</p>
+            ) : debt > 0 ? (
+              <p className="text-2xl font-bold text-destructive mt-1">−{formatAmount(debt)}</p>
+            ) : (
+              <p className="text-2xl font-bold text-muted-foreground mt-1">0,00</p>
+            )}
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground">Очікує оплати</p>
-            <p className={`text-2xl font-bold mt-1 ${totalOwed > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-              {formatAmount(totalOwed)}
+            <p className="text-xs text-muted-foreground">Проведено занять</p>
+            <p className="text-2xl font-bold mt-1">{conductedCount}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground">Запити оплати</p>
+            <p className={`text-2xl font-bold mt-1 ${openRequestsTotal > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+              {formatAmount(openRequestsTotal)}
             </p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Борги — full-width */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Борги (проведені заняття)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {student.slots.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-6 pb-5">Занять ще не проведено</p>
+          ) : (
+            <div className="max-h-72 overflow-y-auto">
+              {student.slots.map((slot) => (
+                <div key={slot.id} className="flex items-center justify-between px-6 py-2.5 border-b border-border/30 last:border-0">
+                  <p className="text-sm">{fmtDate(slot.date)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatAmount(student.lessonPrice)}</p>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-6 py-2.5 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground">Разом</p>
+                <p className="text-sm font-bold tabular-nums">{formatAmount(totalOwedKopecks)}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Оплати + Запити оплати */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Lessons */}
+        {/* Оплати */}
         <Card className="border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Заняття</CardTitle>
+            <CardTitle className="text-base">Оплати</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {student.lessons.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Занять поки немає</p>
+          <CardContent className="p-0">
+            {student.payments.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-6 pb-5">Оплат ще немає</p>
             ) : (
-              student.lessons.map((l) => (
-                <div key={l.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                  <div>
-                    <p className="text-sm">{fmtDate(l.scheduledAt)}</p>
-                    <p className="text-xs text-muted-foreground">{l.durationMin} хв</p>
-                  </div>
-                  <Badge
-                    variant={l.status === "COMPLETED" ? "secondary" : l.status === "CANCELLED" ? "destructive" : "outline"}
-                    className="text-xs"
+              <div className="max-h-72 overflow-y-auto">
+                {student.payments.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between px-6 py-2.5 border-b border-border/30 last:border-0 ${p.isIgnored ? "opacity-50" : ""}`}
                   >
-                    {l.status === "SCHEDULED" ? "Заплановано" : l.status === "COMPLETED" ? "Проведено" : "Скасовано"}
-                  </Badge>
-                </div>
-              ))
+                    <p className={`text-sm text-muted-foreground tabular-nums ${p.isIgnored ? "line-through" : ""}`}>
+                      {p.confirmedAt.toLocaleDateString("uk-UA", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                      })}
+                    </p>
+                    <p className={`text-sm font-semibold tabular-nums ${p.isIgnored ? "line-through text-muted-foreground" : "text-emerald-600"}`}>
+                      +{formatAmount(p.amountReceived - student.paymentOffset)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Payment requests */}
+        {/* Запити оплати */}
         <Card className="border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Запити оплати</CardTitle>

@@ -102,7 +102,7 @@ export function AddStudentDialog() {
                 </div>
                 <div className="space-y-2">
                   <Label>Ціна заняття</Label>
-                  <Input name="lessonPrice" type="number" min="1" step="1" placeholder="1500" required />
+                  <Input name="lessonPrice" type="number" min="0" step="1" placeholder="1500" required />
                 </div>
                 <div className="space-y-2">
                   <Label>Ціна групового заняття <span className="text-muted-foreground font-normal">(необов&apos;язково)</span></Label>

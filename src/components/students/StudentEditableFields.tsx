@@ -35,7 +35,7 @@ function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice
 
   async function save() {
     const num = parseFloat(value.replace(",", "."));
-    if (!num || num <= 0) { cancel(); return; }
+    if (isNaN(num) || num < 0) { cancel(); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/students/${studentId}`, {
@@ -68,7 +68,7 @@ function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
-          min="1"
+          min="0"
           step="50"
           disabled={saving}
           className="w-24 h-7 px-2 text-sm font-semibold border border-primary rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"

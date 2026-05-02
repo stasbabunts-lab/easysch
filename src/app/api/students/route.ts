@@ -35,8 +35,9 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { name, lessonPrice, groupLessonPrice, notes } = await req.json();
-  if (!name || !lessonPrice) {
-    return NextResponse.json({ error: "Имя и цена обязательны" }, { status: 400 });
+  const priceNum = Number(lessonPrice);
+  if (!name || isNaN(priceNum) || priceNum < 0) {
+    return NextResponse.json({ error: "Ім'я та ціна обов'язкові" }, { status: 400 });
   }
 
   const paymentOffset = await assignPaymentOffset(session.user.id);

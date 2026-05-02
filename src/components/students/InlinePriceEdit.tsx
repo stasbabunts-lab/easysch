@@ -24,7 +24,7 @@ export function InlinePriceEdit({ studentId, lessonPrice }: InlinePriceEditProps
 
   async function save() {
     const num = Number(value);
-    if (!num || num <= 0) { setEditing(false); setValue(String(lessonPrice / 100)); return; }
+    if (isNaN(num) || num < 0) { setEditing(false); setValue(String(lessonPrice / 100)); return; }
     setSaving(true);
     const res = await fetch(`/api/students/${studentId}`, {
       method: "PATCH",
@@ -56,7 +56,7 @@ export function InlinePriceEdit({ studentId, lessonPrice }: InlinePriceEditProps
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
           className="w-20 h-6 px-1.5 text-xs border border-primary rounded bg-white text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          min="1"
+          min="0"
           step="50"
           disabled={saving}
         />

@@ -46,21 +46,20 @@ interface PaymentsData {
 
 interface BalanceCellProps {
   client: ActiveClient;
-  /** which side we're editing: credit (+) or debt (-) */
-  side: "credit" | "debt";
   onSaved: (updated: ActiveClient) => void;
 }
 
-function BalanceCell({ client, side, onSaved }: BalanceCellProps) {
+function BalanceCell({ client, onSaved }: BalanceCellProps) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const displayKopecks = side === "credit" ? client.credit : client.debt;
+  // Signed effective balance: positive = credit, negative = debt
+  const effectiveBalance = client.credit > 0 ? client.credit : -client.debt;
 
   function startEdit() {
-    setValue(displayKopecks > 0 ? (displayKopecks / 100).toFixed(2) : "0.00");
+    setValue((effectiveBalance / 100).toFixed(2));
     setEditing(true);
     setTimeout(() => inputRef.current?.select(), 0);
   }
@@ -72,15 +71,13 @@ function BalanceCell({ client, side, onSaved }: BalanceCellProps) {
 
   async function save() {
     const amount = parseFloat(value.replace(",", "."));
-    if (isNaN(amount) || amount < 0) {
+    if (isNaN(amount)) {
       toast.error("Введіть коректну суму");
       return;
     }
+    // Signed: positive = desired credit, negative = desired debt
     const desiredKopecks = Math.round(amount * 100);
-    // Desired effective balance: + for credit, - for debt
-    const desiredBalance = side === "credit" ? desiredKopecks : -desiredKopecks;
-    // New adjustment = desiredBalance - computedBalance
-    const newAdjustment = desiredBalance - client.computedBalance;
+    const newAdjustment = desiredKopecks - client.computedBalance;
 
     setSaving(true);
     try {
@@ -91,13 +88,12 @@ function BalanceCell({ client, side, onSaved }: BalanceCellProps) {
       });
       if (!res.ok) throw new Error();
 
-      // Recompute effective balance locally
-      const effectiveBalance = client.computedBalance + newAdjustment;
+      const newEffective = client.computedBalance + newAdjustment;
       const updated: ActiveClient = {
         ...client,
         balanceAdjustmentKopecks: newAdjustment,
-        credit: effectiveBalance > 0 ? effectiveBalance : 0,
-        debt: effectiveBalance < 0 ? -effectiveBalance : 0,
+        credit: newEffective > 0 ? newEffective : 0,
+        debt: newEffective < 0 ? -newEffective : 0,
       };
       onSaved(updated);
       setEditing(false);
@@ -125,7 +121,8 @@ function BalanceCell({ client, side, onSaved }: BalanceCellProps) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
-          className="w-24 h-7 text-right text-sm border border-primary rounded px-2 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="0.00"
+          className="w-28 h-7 text-right text-sm border border-primary rounded px-2 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
           disabled={saving}
         />
         <button
@@ -150,16 +147,15 @@ function BalanceCell({ client, side, onSaved }: BalanceCellProps) {
     <button
       onClick={startEdit}
       className="w-full text-right group"
-      title="Натисніть щоб змінити"
+      title="Натисніть щоб змінити (+ залишок / − борг)"
     >
-      {displayKopecks > 0 ? (
-        <span
-          className={`font-semibold group-hover:underline decoration-dashed underline-offset-2 ${
-            side === "credit" ? "text-emerald-600" : "text-destructive"
-          }`}
-        >
-          {side === "credit" ? "+" : ""}
-          {formatAmountWhole(displayKopecks)}
+      {client.credit > 0 ? (
+        <span className="font-semibold text-emerald-600 group-hover:underline decoration-dashed underline-offset-2">
+          +{formatAmountWhole(client.credit)}
+        </span>
+      ) : client.debt > 0 ? (
+        <span className="font-semibold text-destructive group-hover:underline decoration-dashed underline-offset-2">
+          −{formatAmountWhole(client.debt)}
         </span>
       ) : (
         <span className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors">
@@ -192,7 +188,7 @@ function PriceCell({ client, onSaved }: { client: ActiveClient; onSaved: (update
 
   async function save() {
     const num = parseInt(value, 10);
-    if (isNaN(num) || num <= 0) { cancel(); return; }
+    if (isNaN(num) || num < 0) { cancel(); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/students/${client.id}`, {
@@ -222,7 +218,7 @@ function PriceCell({ client, onSaved }: { client: ActiveClient; onSaved: (update
         <input
           ref={inputRef}
           type="number"
-          min="1"
+          min="0"
           step="1"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -601,18 +597,14 @@ export default function PaymentsPage() {
                       <Link href={`/dashboard/students/${c.id}`} className="font-medium hover:text-primary hover:underline underline-offset-2 transition-colors">{c.name}</Link>
                       <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">{c.offsetFormatted}</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
                       <div>
                         <p className="mb-1">Ціна ✎</p>
                         <PriceCell client={c} onSaved={updateClient} />
                       </div>
                       <div>
-                        <p className="mb-1">На рахунку ✎</p>
-                        <BalanceCell client={c} side="credit" onSaved={updateClient} />
-                      </div>
-                      <div>
-                        <p className="mb-1">Борг ✎</p>
-                        <BalanceCell client={c} side="debt" onSaved={updateClient} />
+                        <p className="mb-1">Баланс ✎</p>
+                        <BalanceCell client={c} onSaved={updateClient} />
                       </div>
                       <div>
                         <p className="mb-1">Запит ✎</p>
@@ -630,8 +622,7 @@ export default function PaymentsPage() {
                       <th className="px-4 py-2.5 text-left font-medium text-muted-foreground text-xs w-16">ID</th>
                       <th className="px-4 py-2.5 text-left font-medium text-muted-foreground text-xs">Клієнт</th>
                       <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-36">Ціна ✎</th>
-                      <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">На рахунку ✎</th>
-                      <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">Не оплачено ✎</th>
+                      <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">Баланс ✎</th>
                       <th className="px-4 py-2.5 text-right font-medium text-muted-foreground text-xs w-40">Запит оплати</th>
                     </tr>
                   </thead>
@@ -647,8 +638,7 @@ export default function PaymentsPage() {
                           </Link>
                         </td>
                         <td className="px-4 py-3"><PriceCell client={c} onSaved={updateClient} /></td>
-                        <td className="px-4 py-3"><BalanceCell client={c} side="credit" onSaved={updateClient} /></td>
-                        <td className="px-4 py-3"><BalanceCell client={c} side="debt" onSaved={updateClient} /></td>
+                        <td className="px-4 py-3"><BalanceCell client={c} onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><RequestCell client={c} onSaved={updateClient} /></td>
                       </tr>
                     ))}
