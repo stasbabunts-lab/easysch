@@ -32,6 +32,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { name, lessonPrice, groupLessonPrice, notes, balanceAdjustmentKopecks, sendPaymentReminder } = await req.json();
+
+  // When price changes, compensate balanceAdjustmentKopecks so past lessons
+  // are not retroactively affected. Only auto-adjust when the caller isn't
+  // also sending an explicit balanceAdjustmentKopecks (they're separate ops).
+  let autoAdjustment: number | undefined;
+  if (lessonPrice !== undefined && balanceAdjustmentKopecks === undefined) {
+    const newPriceKopecks = Math.round(Number(lessonPrice) * 100);
+    const priceDiffKopecks = newPriceKopecks - existing.lessonPrice;
+    if (priceDiffKopecks !== 0) {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const currentTime = now.toISOString().slice(11, 16);
+      const conductedCount = await prisma.availabilitySlot.count({
+        where: {
+          studentId: id,
+          isActive: true,
+          OR: [
+            { date: { lt: today } },
+            { date: today, startTime: { lte: currentTime } },
+          ],
+        },
+      });
+      // Add diff × count so effectiveBalance stays the same
+      autoAdjustment = existing.balanceAdjustmentKopecks + priceDiffKopecks * conductedCount;
+    }
+  }
+
   const student = await prisma.student.update({
     where: { id },
     data: {
@@ -44,6 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(balanceAdjustmentKopecks !== undefined && {
         balanceAdjustmentKopecks: Math.round(Number(balanceAdjustmentKopecks)),
       }),
+      ...(autoAdjustment !== undefined && { balanceAdjustmentKopecks: autoAdjustment }),
       ...(sendPaymentReminder !== undefined && { sendPaymentReminder }),
     },
   });
