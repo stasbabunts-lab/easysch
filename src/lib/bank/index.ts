@@ -7,9 +7,10 @@ import { RaiffeisenAdapter } from "./raiffeisen-adapter";
 import { UkrsibbankAdapter } from "./ukrsibbank-adapter";
 import { PumbAdapter } from "./pumb-adapter";
 import { PayPalAdapter } from "./paypal-adapter";
+import { decrypt } from "@/lib/encryption";
 
 function parseCreds(raw: string): Record<string, string> {
-  try { return JSON.parse(raw); } catch { return {}; }
+  try { return JSON.parse(decrypt(raw)); } catch { return {}; }
 }
 
 /** Build a BankAdapter from a BankAccount record */

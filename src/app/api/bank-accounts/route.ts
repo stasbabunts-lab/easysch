@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { encrypt } from "@/lib/encryption";
 
 // GET: list bank accounts (creds never returned)
 export async function GET() {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       teacherId: session.user.id,
       bankType,
       label: label.trim(),
-      creds: JSON.stringify(creds),
+      creds: encrypt(JSON.stringify(creds)),
       isActive: true,
     },
     select: { id: true, bankType: true, label: true, isActive: true, createdAt: true },

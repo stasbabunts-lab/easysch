@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { encrypt } from "@/lib/encryption";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -24,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     data: {
       ...(isActive !== undefined && { isActive }),
       ...(label !== undefined && { label: String(label).trim() }),
-      ...(creds && typeof creds === "object" && { creds: JSON.stringify(creds) }),
+      ...(creds && typeof creds === "object" && { creds: encrypt(JSON.stringify(creds)) }),
     },
     select: { id: true, bankType: true, label: true, isActive: true, createdAt: true },
   });
