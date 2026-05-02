@@ -150,17 +150,15 @@ function BalanceCell({ client, onSaved }: BalanceCellProps) {
       title="Натисніть щоб змінити (+ залишок / − борг)"
     >
       {client.credit > 0 ? (
-        <span className="font-semibold text-emerald-600 group-hover:underline decoration-dashed underline-offset-2">
+        <span className="text-[1.2em] font-semibold leading-none text-emerald-600 group-hover:underline decoration-dashed underline-offset-2">
           +{formatAmountWhole(client.credit)}
         </span>
       ) : client.debt > 0 ? (
-        <span className="font-semibold text-destructive group-hover:underline decoration-dashed underline-offset-2">
+        <span className="text-[1.2em] font-semibold leading-none text-destructive group-hover:underline decoration-dashed underline-offset-2">
           −{formatAmountWhole(client.debt)}
         </span>
       ) : (
-        <span className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors">
-          —
-        </span>
+        <span className="text-muted-foreground/30 group-hover:text-primary group-hover:font-bold transition-colors text-lg leading-none">+</span>
       )}
     </button>
   );
