@@ -337,7 +337,7 @@ function RequestCell({ client, onSaved }: { client: ActiveClient; onSaved: (upda
           )}
         </span>
       ) : (
-        <span className="text-muted-foreground/40 group-hover:text-muted-foreground transition-colors">—</span>
+        <span className="text-muted-foreground/30 group-hover:text-primary group-hover:font-bold transition-colors text-lg leading-none">+</span>
       )}
     </button>
   );
