@@ -21,13 +21,15 @@ function formatDateTime(date: Date) {
 
 function formatNotifTime(date: Date) {
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return "щойно";
-  if (diffMin < 60) return `${diffMin} хв тому`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH} год тому`;
-  return date.toLocaleDateString("uk-UA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Kyiv" });
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleString("uk-UA", {
+    day: "numeric",
+    month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Kyiv",
+  });
 }
 
 const NOTIF_META: Record<NotifType, { label: string; cls: string }> = {
