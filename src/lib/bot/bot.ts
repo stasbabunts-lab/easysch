@@ -394,7 +394,7 @@ bot.command("pay", async (ctx) => {
   for (const [i, student] of students.entries()) {
     const request = await prisma.paymentRequest.findFirst({
       where: { studentId: student.id, fulfilledBy: null },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
 
     const paymentDetails = student.teacher.paymentDetails;
