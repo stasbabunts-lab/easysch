@@ -306,7 +306,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
       const request = await prisma.paymentRequest.findFirst({
         where: { studentId: slot.student.id, fulfilledBy: null },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "asc" },
       });
 
       const sentReminderText = await sendPostLessonPaymentReminder(
@@ -353,7 +353,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
         const request = await prisma.paymentRequest.findFirst({
           where: { studentId: student.id, fulfilledBy: null },
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: "asc" },
         });
 
         const priceKopecks = student.groupLessonPrice ?? student.lessonPrice;
