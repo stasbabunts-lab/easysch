@@ -6,6 +6,7 @@ import { CreditAgricoleAdapter } from "./creditagricole-adapter";
 import { RaiffeisenAdapter } from "./raiffeisen-adapter";
 import { UkrsibbankAdapter } from "./ukrsibbank-adapter";
 import { PumbAdapter } from "./pumb-adapter";
+import { PayPalAdapter } from "./paypal-adapter";
 
 function parseCreds(raw: string): Record<string, string> {
   try { return JSON.parse(raw); } catch { return {}; }
@@ -43,6 +44,11 @@ export function getBankAdapter(bankType: string, credsJson: string): BankAdapter
       if (!c.merchantId || !c.apiKey || !c.iban)
         throw new Error("PUMB: merchantId, apiKey і IBAN обов'язкові");
       return new PumbAdapter(c.merchantId, c.apiKey, c.iban);
+
+    case "paypal":
+      if (!c.clientId || !c.clientSecret)
+        throw new Error("PayPal: clientId і clientSecret обов'язкові");
+      return new PayPalAdapter(c.clientId, c.clientSecret);
 
     case "mock":
     default:
@@ -247,6 +253,34 @@ export const BANK_OPTIONS: BankOption[] = [
         label: "IBAN рахунку",
         type: "text",
         placeholder: "UA123456789012345678901234567",
+        howToGet: null,
+      },
+    ],
+  },
+  {
+    value: "paypal",
+    label: "PayPal",
+    fields: [
+      {
+        key: "clientId",
+        label: "Client ID",
+        type: "text",
+        placeholder: "Client ID з PayPal Developer Dashboard",
+        howToGet: {
+          url: "https://developer.paypal.com/dashboard/applications/live",
+          steps: [
+            "Перейдіть на developer.paypal.com → Apps & Credentials",
+            "Оберіть режим «Live» (не Sandbox)",
+            "Створіть або відкрийте застосунок",
+            "Скопіюйте Client ID та Client Secret",
+          ],
+        },
+      },
+      {
+        key: "clientSecret",
+        label: "Client Secret",
+        type: "password",
+        placeholder: "Client Secret з PayPal Developer Dashboard",
         howToGet: null,
       },
     ],
