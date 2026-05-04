@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, User, Users, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, User, Users, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, Eye, EyeOff } from "lucide-react";
 
 function computeEndTime(startTime: string, durationMin: number): string {
   const [h, m] = startTime.split(":").map(Number);
@@ -47,6 +47,7 @@ interface SlotData {
   studentId: string | null;
   student: StudentInfo | null;
   isGroup: boolean;
+  showAsFree: boolean;
   groupStudents: { studentId: string; student: StudentInfo }[];
 }
 
@@ -138,6 +139,11 @@ export function ScheduleManager({ students }: Props) {
   // Recurring toggle confirm
   const [toggleSlot, setToggleSlot] = useState<SlotData | null>(null);
   const [toggling, setToggling] = useState(false);
+
+  // Edit group dialog
+  const [editGroupSlot, setEditGroupSlot] = useState<SlotData | null>(null);
+  const [editGroupIds, setEditGroupIds] = useState<string[]>([]);
+  const [editingGroup, setEditingGroup] = useState(false);
 
   // Past days collapse (only on current window)
   const [pastCollapsed, setPastCollapsed] = useState(true);
@@ -301,6 +307,49 @@ export function ScheduleManager({ students }: Props) {
     }
   }
 
+  // ── Edit group students ──────────────────────────────────────────────
+  function openEditGroup(slot: SlotData) {
+    setEditGroupSlot(slot);
+    setEditGroupIds(slot.groupStudents.map((gs) => gs.studentId));
+  }
+
+  async function confirmEditGroup() {
+    if (!editGroupSlot) return;
+    setEditingGroup(true);
+    try {
+      const res = await fetch(`/api/schedule/${editGroupSlot.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupStudentIds: editGroupIds }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSlots((prev) => prev.map((s) => (s.id === editGroupSlot.id ? data.slots[0] : s)));
+      toast.success("Групу оновлено");
+      setEditGroupSlot(null);
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setEditingGroup(false);
+    }
+  }
+
+  // ── Toggle showAsFree ────────────────────────────────────────────────
+  async function toggleShowAsFree(slot: SlotData) {
+    try {
+      const res = await fetch(`/api/schedule/${slot.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showAsFree: !slot.showAsFree }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSlots((prev) => prev.map((s) => (s.id === slot.id ? data.slots[0] : s)));
+    } catch {
+      toast.error("Помилка збереження");
+    }
+  }
+
   // ── Sort students by last activity (slot date or createdAt) desc ─────
   const sortedStudents = [...students].sort((a, b) => {
     const lastSlot = (s: StudentInfo) =>
@@ -392,6 +441,8 @@ export function ScheduleManager({ students }: Props) {
                           key={slot.id}
                           slot={slot}
                           onAssign={slot.isGroup ? undefined : () => openAssign(slot)}
+                          onEditGroup={slot.isGroup ? () => openEditGroup(slot) : undefined}
+                          onToggleShowAsFree={slot.isGroup ? () => toggleShowAsFree(slot) : undefined}
                           onDelete={() => setDeleteSlot(slot)}
                           onToggleRecurring={() => setToggleSlot(slot)}
                         />
@@ -704,6 +755,36 @@ export function ScheduleManager({ students }: Props) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Edit Group Dialog ── */}
+      <Dialog open={!!editGroupSlot} onOpenChange={(o) => !o && setEditGroupSlot(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Редагувати групу</DialogTitle></DialogHeader>
+          {editGroupSlot && (
+            <div className="space-y-4 pt-1">
+              <div className="text-xs text-muted-foreground">
+                {editGroupSlot.date} · {editGroupSlot.startTime}–{editGroupSlot.endTime}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Учасники</Label>
+                <MultiStudentPicker
+                  value={editGroupIds}
+                  onChange={setEditGroupIds}
+                  students={students}
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button onClick={confirmEditGroup} disabled={editingGroup} className="flex-1">
+                  {editingGroup ? "Зберігаємо..." : "Зберегти"}
+                </Button>
+                <Button variant="ghost" onClick={() => setEditGroupSlot(null)} className="flex-1">
+                  Скасувати
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -881,11 +962,13 @@ function MultiStudentPicker({ value, onChange, students }: {
 interface SlotRowProps {
   slot: SlotData;
   onAssign?: () => void;
+  onEditGroup?: () => void;
+  onToggleShowAsFree?: () => void;
   onDelete: () => void;
   onToggleRecurring: () => void;
 }
 
-function SlotRow({ slot, onAssign, onDelete, onToggleRecurring }: SlotRowProps) {
+function SlotRow({ slot, onAssign, onEditGroup, onToggleShowAsFree, onDelete, onToggleRecurring }: SlotRowProps) {
   const isRecurring = slot.isRecurring;
   const isGroup = slot.isGroup;
   const hasStudent = isGroup ? slot.groupStudents.length > 0 : !!slot.student;
@@ -950,8 +1033,28 @@ function SlotRow({ slot, onAssign, onDelete, onToggleRecurring }: SlotRowProps) 
         {isRecurring ? "Щотижнево" : "Разове"}
       </button>
 
+      {/* Group-specific controls */}
+      {isGroup && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleShowAsFree?.(); }}
+          title={slot.showAsFree ? "Відображається як вільний у публічному розкладі — натисніть щоб приховати" : "Показати як вільний у публічному розкладі"}
+          className={`p-1.5 rounded-md transition-colors shrink-0 ${slot.showAsFree ? "text-primary hover:bg-white/60" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-white/60"}`}
+        >
+          {slot.showAsFree ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        </button>
+      )}
+
       {/* Action buttons */}
       <div className="flex items-center gap-0.5 shrink-0">
+        {isGroup && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEditGroup?.(); }}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/60 transition-colors"
+            title="Редагувати учасників групи"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-white/60 transition-colors"

@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const body = await req.json();
-  const { studentId, isRecurring, applyTo = "one" } = body;
+  const { studentId, isRecurring, applyTo = "one", groupStudentIds, showAsFree } = body;
 
   // ── Toggle recurring ────────────────────────────────────────────────
   if (isRecurring !== undefined && isRecurring !== slot.isRecurring) {
@@ -110,6 +110,38 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
       return NextResponse.json({ action: "updated", slots: [updated] });
     }
+  }
+
+  // ── Update group students ───────────────────────────────────────────
+  if (groupStudentIds !== undefined && Array.isArray(groupStudentIds)) {
+    await prisma.groupSlotStudent.deleteMany({ where: { slotId: id } });
+    if (groupStudentIds.length > 0) {
+      await prisma.groupSlotStudent.createMany({
+        data: groupStudentIds.map((sid: string) => ({ slotId: id, studentId: sid })),
+        skipDuplicates: true,
+      });
+    }
+    const updated = await prisma.availabilitySlot.findUnique({
+      where: { id },
+      include: {
+        student: { select: { id: true, name: true, createdAt: true } },
+        groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
+      },
+    });
+    return NextResponse.json({ action: "updated", slots: updated ? [updated] : [] });
+  }
+
+  // ── Toggle showAsFree ───────────────────────────────────────────────
+  if (showAsFree !== undefined) {
+    const updated = await prisma.availabilitySlot.update({
+      where: { id },
+      data: { showAsFree },
+      include: {
+        student: { select: { id: true, name: true, createdAt: true } },
+        groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
+      },
+    });
+    return NextResponse.json({ action: "updated", slots: [updated] });
   }
 
   // Generic update

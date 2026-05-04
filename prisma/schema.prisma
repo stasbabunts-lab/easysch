@@ -60,6 +60,7 @@ model AvailabilitySlot {
   recurringGroupId String?  // общий UUID для серии повторяющихся событий
   isActive         Boolean  @default(true)
   isGroup          Boolean  @default(false)
+  showAsFree       Boolean  @default(false) // group slots: show as free in public schedule
   studentId        String?
   student          Student? @relation(fields: [studentId], references: [id])
 

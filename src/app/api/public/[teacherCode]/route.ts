@@ -22,8 +22,11 @@ export async function GET(
     where: {
       teacherId: teacher.id,
       isActive: true,
-      studentId: null, // only free slots on public page
       date: { gte: today, lte: in28Days },
+      OR: [
+        { isGroup: false, studentId: null },   // free individual slots
+        { isGroup: true, showAsFree: true },   // group slots explicitly marked as public
+      ],
     },
     select: {
       date: true,
