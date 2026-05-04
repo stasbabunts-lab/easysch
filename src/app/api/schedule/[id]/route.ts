@@ -118,7 +118,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (groupStudentIds.length > 0) {
       await prisma.groupSlotStudent.createMany({
         data: groupStudentIds.map((sid: string) => ({ slotId: id, studentId: sid })),
-        skipDuplicates: true,
       });
     }
     const updated = await prisma.availabilitySlot.findUnique({
