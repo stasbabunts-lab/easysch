@@ -72,11 +72,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (showAsFree !== undefined) scalarData.showAsFree = showAsFree;
 
   if (applyTo === "future" && slot.recurringGroupId) {
-    // Apply scalar changes to all future slots in the series
-    if (Object.keys(scalarData).length > 0) {
+    // Apply scalar changes to all future slots in the series.
+    // Exclude `date` — setting every slot in a weekly series to the same fixed date
+    // collapses them all to one day, which is never what the user wants.
+    const { date: _excludedDate, ...bulkData } = scalarData as Record<string, unknown> & { date?: unknown };
+    void _excludedDate;
+    if (Object.keys(bulkData).length > 0) {
       await prisma.availabilitySlot.updateMany({
         where: { recurringGroupId: slot.recurringGroupId, date: { gte: slot.date }, isActive: true },
-        data: scalarData,
+        data: bulkData,
       });
     }
     const updated = await prisma.availabilitySlot.findMany({

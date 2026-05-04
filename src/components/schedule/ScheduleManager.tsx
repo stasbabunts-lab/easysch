@@ -340,7 +340,9 @@ export function ScheduleManager({ students }: Props) {
     try {
       const body: Record<string, unknown> = {
         applyTo: editState.applyTo,
-        date: editState.date,
+        // date is only meaningful for single-slot edits — changing the date of an
+        // entire recurring series to one fixed value would collapse all slots to the same day
+        ...(editState.applyTo === "one" ? { date: editState.date } : {}),
         startTime: editState.startTime,
         endTime: editState.endTime,
         durationMin: editState.durationMin,
@@ -750,19 +752,25 @@ export function ScheduleManager({ students }: Props) {
           <DialogHeader><DialogTitle>Редагувати заняття</DialogTitle></DialogHeader>
           {editState && (
             <div className="space-y-4 pt-2">
-              {/* Date */}
+              {/* Date — disabled for bulk "future" edits to prevent collapsing the whole series to one date */}
               <div className="space-y-1.5">
-                <Label className="text-xs">
+                <Label className={`text-xs ${editState.applyTo === "future" ? "text-muted-foreground/50" : ""}`}>
                   Дата{" "}
-                  <span className="text-muted-foreground font-normal">
-                    ({new Date(editState.date + "T12:00:00").toLocaleDateString("uk-UA", { weekday: "long" })})
-                  </span>
+                  {editState.applyTo === "one" ? (
+                    <span className="text-muted-foreground font-normal">
+                      ({new Date(editState.date + "T12:00:00").toLocaleDateString("uk-UA", { weekday: "long" })})
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground/50 font-normal">— не змінюється для серії</span>
+                  )}
                 </Label>
                 <Input
                   ref={editDateRef}
                   type="date"
                   value={editState.date}
+                  disabled={editState.applyTo === "future"}
                   onChange={(e) => setEditState((s) => s && { ...s, date: e.target.value })}
+                  className={editState.applyTo === "future" ? "opacity-40 cursor-not-allowed" : ""}
                 />
               </div>
               {/* Time */}
