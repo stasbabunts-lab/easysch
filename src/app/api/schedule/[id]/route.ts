@@ -23,133 +23,85 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const body = await req.json();
-  const { studentId, isRecurring, applyTo = "one", groupStudentIds, showAsFree } = body;
+  const { isRecurring, applyTo = "one", date, startTime, endTime, durationMin, studentId, groupStudentIds, showAsFree } = body;
 
-  // ── Toggle recurring ────────────────────────────────────────────────
+  const slotInclude = {
+    student: { select: { id: true, name: true, createdAt: true } },
+    groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
+  } as const;
+
+  // ── Toggle recurring (special: creates/destroys series) ─────────────
   if (isRecurring !== undefined && isRecurring !== slot.isRecurring) {
     if (isRecurring) {
-      // Turn ON recurring: create a new series from this slot's date
       const groupId = randomUUID();
-      const instances = buildWeeklyInstances(
-        slot.date,
-        slot.startTime,
-        slot.endTime,
-        slot.durationMin,
-        groupId,
-        13
-      );
-
-      // Delete the current single slot and replace with series
+      const instances = buildWeeklyInstances(slot.date, slot.startTime, slot.endTime, slot.durationMin, groupId, 13);
       await prisma.availabilitySlot.delete({ where: { id } });
       await prisma.availabilitySlot.createMany({
         data: instances.map((inst: ReturnType<typeof buildWeeklyInstances>[number]) => ({
-          teacherId: session.user.id,
-          ...inst,
-          studentId: slot.studentId,
-          isActive: true,
+          teacherId: session.user.id, ...inst, studentId: slot.studentId, isActive: true,
         })),
       });
-
       const created = await prisma.availabilitySlot.findMany({
         where: { teacherId: session.user.id, recurringGroupId: groupId },
-        include: { student: { select: { id: true, name: true } } },
+        include: slotInclude,
         orderBy: { date: "asc" },
       });
       return NextResponse.json({ action: "series_created", slots: created });
     } else {
-      // Turn OFF recurring: convert this specific slot to a one-off, cancel future series instances
       if (slot.recurringGroupId && applyTo === "future") {
-        // Cancel this + future instances in the series
         await prisma.availabilitySlot.updateMany({
-          where: {
-            recurringGroupId: slot.recurringGroupId,
-            date: { gte: slot.date },
-            isActive: true,
-          },
+          where: { recurringGroupId: slot.recurringGroupId, date: { gte: slot.date }, isActive: true },
           data: { isActive: false },
         });
       } else {
-        // Just make this one non-recurring (detach from group)
-        await prisma.availabilitySlot.update({
-          where: { id },
-          data: { isRecurring: false, recurringGroupId: null },
-        });
+        await prisma.availabilitySlot.update({ where: { id }, data: { isRecurring: false, recurringGroupId: null } });
       }
-      const updated = await prisma.availabilitySlot.findUnique({
-        where: { id },
-        include: { student: { select: { id: true, name: true } } },
-      });
+      const updated = await prisma.availabilitySlot.findUnique({ where: { id }, include: slotInclude });
       return NextResponse.json({ action: "updated", slots: updated ? [updated] : [] });
     }
   }
 
-  // ── Update student assignment ───────────────────────────────────────
-  if (studentId !== undefined) {
-    const newStudentId = studentId || null;
+  // ── Unified field update (date/time, student, group, showAsFree) ────
+  // Build scalar fields to update
+  const scalarData: Record<string, unknown> = {};
+  if (date !== undefined) scalarData.date = date;
+  if (startTime !== undefined) scalarData.startTime = startTime;
+  if (endTime !== undefined) scalarData.endTime = endTime;
+  if (durationMin !== undefined) scalarData.durationMin = durationMin;
+  if (!slot.isGroup && studentId !== undefined) scalarData.studentId = studentId || null;
+  if (showAsFree !== undefined) scalarData.showAsFree = showAsFree;
 
-    if (applyTo === "future" && slot.recurringGroupId) {
+  if (applyTo === "future" && slot.recurringGroupId) {
+    // Apply scalar changes to all future slots in the series
+    if (Object.keys(scalarData).length > 0) {
       await prisma.availabilitySlot.updateMany({
-        where: {
-          recurringGroupId: slot.recurringGroupId,
-          date: { gte: slot.date },
-          isActive: true,
-        },
-        data: { studentId: newStudentId },
-      });
-      const updated = await prisma.availabilitySlot.findMany({
-        where: { recurringGroupId: slot.recurringGroupId, isActive: true },
-        include: { student: { select: { id: true, name: true } } },
-        orderBy: { date: "asc" },
-      });
-      return NextResponse.json({ action: "updated", slots: updated });
-    } else {
-      const updated = await prisma.availabilitySlot.update({
-        where: { id },
-        data: { studentId: newStudentId },
-        include: { student: { select: { id: true, name: true } } },
-      });
-      return NextResponse.json({ action: "updated", slots: [updated] });
-    }
-  }
-
-  // ── Update group students ───────────────────────────────────────────
-  if (groupStudentIds !== undefined && Array.isArray(groupStudentIds)) {
-    await prisma.groupSlotStudent.deleteMany({ where: { slotId: id } });
-    if (groupStudentIds.length > 0) {
-      await prisma.groupSlotStudent.createMany({
-        data: groupStudentIds.map((sid: string) => ({ slotId: id, studentId: sid })),
+        where: { recurringGroupId: slot.recurringGroupId, date: { gte: slot.date }, isActive: true },
+        data: scalarData,
       });
     }
-    const updated = await prisma.availabilitySlot.findUnique({
-      where: { id },
-      include: {
-        student: { select: { id: true, name: true, createdAt: true } },
-        groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
-      },
+    const updated = await prisma.availabilitySlot.findMany({
+      where: { recurringGroupId: slot.recurringGroupId, isActive: true },
+      include: slotInclude,
+      orderBy: { date: "asc" },
     });
+    return NextResponse.json({ action: "updated", slots: updated });
+  } else {
+    // Single slot update
+    if (Object.keys(scalarData).length > 0) {
+      await prisma.availabilitySlot.update({ where: { id }, data: scalarData });
+    }
+    // Group students (only single-slot, not bulk)
+    if (slot.isGroup && groupStudentIds !== undefined && Array.isArray(groupStudentIds)) {
+      await prisma.groupSlotStudent.deleteMany({ where: { slotId: id } });
+      if (groupStudentIds.length > 0) {
+        await prisma.groupSlotStudent.createMany({
+          data: groupStudentIds.map((sid: string) => ({ slotId: id, studentId: sid })),
+        });
+      }
+    }
+    const updated = await prisma.availabilitySlot.findUnique({ where: { id }, include: slotInclude });
     return NextResponse.json({ action: "updated", slots: updated ? [updated] : [] });
   }
-
-  // ── Toggle showAsFree ───────────────────────────────────────────────
-  if (showAsFree !== undefined) {
-    const updated = await prisma.availabilitySlot.update({
-      where: { id },
-      data: { showAsFree },
-      include: {
-        student: { select: { id: true, name: true, createdAt: true } },
-        groupStudents: { include: { student: { select: { id: true, name: true, createdAt: true } } } },
-      },
-    });
-    return NextResponse.json({ action: "updated", slots: [updated] });
-  }
-
-  // Generic update
-  const updated = await prisma.availabilitySlot.update({
-    where: { id },
-    data: body,
-    include: { student: { select: { id: true, name: true } } },
-  });
-  return NextResponse.json({ action: "updated", slots: [updated] });
 }
 
 // DELETE: remove slot(s)

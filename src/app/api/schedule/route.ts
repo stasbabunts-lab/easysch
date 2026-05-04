@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { date, startTime, endTime, durationMin = 60, isRecurring = false, studentId, isGroup = false, studentIds = [] } = body;
+  const { date, startTime, endTime, durationMin = 60, isRecurring = false, studentId, isGroup = false, studentIds = [], showAsFree = false } = body;
 
   if (!date || !startTime || !endTime) {
     return NextResponse.json({ error: "date, startTime, endTime required" }, { status: 400 });
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         isGroup,
         studentId: isGroup ? null : (studentId || null),
         isActive: true,
+        showAsFree: isGroup ? showAsFree : false,
       })),
     });
     const created = await prisma.availabilitySlot.findMany({
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
         isRecurring: false,
         isGroup,
         studentId: isGroup ? null : (studentId || null),
+        showAsFree: isGroup ? showAsFree : false,
       },
       include: slotInclude,
     });

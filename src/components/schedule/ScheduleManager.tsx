@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, User, Users, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Pencil, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, User, Users, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Eye } from "lucide-react";
 
 function computeEndTime(startTime: string, durationMin: number): string {
   const [h, m] = startTime.split(":").map(Number);
@@ -51,6 +51,20 @@ interface SlotData {
   groupStudents: { studentId: string; student: StudentInfo }[];
 }
 
+interface EditState {
+  slot: SlotData;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMin: number;
+  durationStr: string;
+  studentId: string;
+  groupStudentIds: string[];
+  showAsFree: boolean;
+  applyTo: "one" | "future";
+  saving: boolean;
+}
+
 function timeToMin(t: string) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
@@ -61,6 +75,7 @@ interface Props {
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+void WEEK_MS;
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -98,10 +113,22 @@ export function ScheduleManager({ students }: Props) {
   const [newSlot, setNewSlot] = useState(() => {
     const startTime = "10:00";
     const durationMin = 60;
-    return { date: isoDate(new Date()), startTime, endTime: computeEndTime(startTime, durationMin), durationMin, durationStr: "60", isRecurring: false, isGroup: false, studentId: "", groupStudentIds: [] as string[] };
+    return {
+      date: isoDate(new Date()),
+      startTime,
+      endTime: computeEndTime(startTime, durationMin),
+      durationMin,
+      durationStr: "60",
+      isRecurring: false,
+      isGroup: false,
+      studentId: "",
+      groupStudentIds: [] as string[],
+      showAsFree: false,
+    };
   });
   const [adding, setAdding] = useState(false);
 
+  // Wheel refs for add dialog
   const dateRef = useWheelRef((e) => {
     setNewSlot((s) => {
       const d = new Date(s.date + "T12:00:00");
@@ -126,11 +153,36 @@ export function ScheduleManager({ students }: Props) {
     });
   });
 
-  // Assign student dialog
-  const [assignSlot, setAssignSlot] = useState<SlotData | null>(null);
-  const [assignStudent, setAssignStudent] = useState("");
-  const [assignApplyTo, setAssignApplyTo] = useState<"one" | "future">("future");
-  const [assigning, setAssigning] = useState(false);
+  // Unified edit dialog state
+  const [editState, setEditState] = useState<EditState | null>(null);
+
+  // Wheel refs for edit dialog
+  const editDateRef = useWheelRef((e) => {
+    setEditState((s) => {
+      if (!s) return s;
+      const d = new Date(s.date + "T12:00:00");
+      d.setDate(d.getDate() + (e.deltaY < 0 ? 1 : -1));
+      return { ...s, date: isoDate(d) };
+    });
+  });
+
+  const editStartTimeRef = useWheelRef((e) => {
+    setEditState((s) => {
+      if (!s) return s;
+      const [h, m] = s.startTime.split(":").map(Number);
+      const newH = (h + (e.deltaY < 0 ? 1 : -1) + 24) % 24;
+      const newStart = `${String(newH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      return { ...s, startTime: newStart, endTime: computeEndTime(newStart, s.durationMin) };
+    });
+  });
+
+  const editDurationRef = useWheelRef((e) => {
+    setEditState((s) => {
+      if (!s) return s;
+      const newDur = Math.max(10, s.durationMin + (e.deltaY < 0 ? 10 : -10));
+      return { ...s, durationMin: newDur, durationStr: String(newDur), endTime: computeEndTime(s.startTime, newDur) };
+    });
+  });
 
   // Delete confirm dialog
   const [deleteSlot, setDeleteSlot] = useState<SlotData | null>(null);
@@ -139,11 +191,6 @@ export function ScheduleManager({ students }: Props) {
   // Recurring toggle confirm
   const [toggleSlot, setToggleSlot] = useState<SlotData | null>(null);
   const [toggling, setToggling] = useState(false);
-
-  // Edit group dialog
-  const [editGroupSlot, setEditGroupSlot] = useState<SlotData | null>(null);
-  const [editGroupIds, setEditGroupIds] = useState<string[]>([]);
-  const [editingGroup, setEditingGroup] = useState(false);
 
   // Past days collapse (only on current window)
   const [pastCollapsed, setPastCollapsed] = useState(true);
@@ -179,10 +226,6 @@ export function ScheduleManager({ students }: Props) {
 
   // ── Add slot ─────────────────────────────────────────────────────────
   async function handleAdd() {
-    if (newSlot.isGroup && newSlot.groupStudentIds.length === 0) {
-      toast.error("Оберіть хоча б одного клієнта для групового заняття");
-      return;
-    }
     setAdding(true);
     try {
       const res = await fetch("/api/schedule", {
@@ -197,6 +240,7 @@ export function ScheduleManager({ students }: Props) {
           isGroup: newSlot.isGroup,
           studentId: newSlot.isGroup ? null : (newSlot.studentId || null),
           studentIds: newSlot.isGroup ? newSlot.groupStudentIds : undefined,
+          showAsFree: newSlot.isGroup ? newSlot.showAsFree : false,
         }),
       });
       if (!res.ok) throw new Error();
@@ -273,21 +317,45 @@ export function ScheduleManager({ students }: Props) {
     }
   }
 
-  // ── Assign student ───────────────────────────────────────────────────
-  function openAssign(slot: SlotData) {
-    setAssignSlot(slot);
-    setAssignStudent(slot.studentId ?? "");
-    setAssignApplyTo(slot.isRecurring ? "future" : "one");
+  // ── Unified edit ─────────────────────────────────────────────────────
+  function openEdit(slot: SlotData) {
+    setEditState({
+      slot,
+      date: slot.date,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      durationMin: slot.durationMin,
+      durationStr: String(slot.durationMin),
+      studentId: slot.studentId ?? "",
+      groupStudentIds: slot.groupStudents.map((gs) => gs.studentId),
+      showAsFree: slot.showAsFree,
+      applyTo: slot.isRecurring ? "future" : "one",
+      saving: false,
+    });
   }
 
-  async function confirmAssign() {
-    if (!assignSlot) return;
-    setAssigning(true);
+  async function confirmEdit() {
+    if (!editState) return;
+    setEditState((s) => s && { ...s, saving: true });
     try {
-      const res = await fetch(`/api/schedule/${assignSlot.id}`, {
+      const body: Record<string, unknown> = {
+        applyTo: editState.applyTo,
+        date: editState.date,
+        startTime: editState.startTime,
+        endTime: editState.endTime,
+        durationMin: editState.durationMin,
+        showAsFree: editState.showAsFree,
+      };
+      if (!editState.slot.isGroup) {
+        body.studentId = editState.studentId || null;
+      } else {
+        // groupStudentIds apply only to single slot (API ignores for "future")
+        body.groupStudentIds = editState.groupStudentIds;
+      }
+      const res = await fetch(`/api/schedule/${editState.slot.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: assignStudent || null, applyTo: assignApplyTo }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -299,54 +367,10 @@ export function ScheduleManager({ students }: Props) {
         return next;
       });
       toast.success("Збережено");
-      setAssignSlot(null);
+      setEditState(null);
     } catch {
       toast.error("Помилка збереження");
-    } finally {
-      setAssigning(false);
-    }
-  }
-
-  // ── Edit group students ──────────────────────────────────────────────
-  function openEditGroup(slot: SlotData) {
-    setEditGroupSlot(slot);
-    setEditGroupIds(slot.groupStudents.map((gs) => gs.studentId));
-  }
-
-  async function confirmEditGroup() {
-    if (!editGroupSlot) return;
-    setEditingGroup(true);
-    try {
-      const res = await fetch(`/api/schedule/${editGroupSlot.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupStudentIds: editGroupIds }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setSlots((prev) => prev.map((s) => (s.id === editGroupSlot.id ? data.slots[0] : s)));
-      toast.success("Групу оновлено");
-      setEditGroupSlot(null);
-    } catch {
-      toast.error("Помилка збереження");
-    } finally {
-      setEditingGroup(false);
-    }
-  }
-
-  // ── Toggle showAsFree ────────────────────────────────────────────────
-  async function toggleShowAsFree(slot: SlotData) {
-    try {
-      const res = await fetch(`/api/schedule/${slot.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ showAsFree: !slot.showAsFree }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setSlots((prev) => prev.map((s) => (s.id === slot.id ? data.slots[0] : s)));
-    } catch {
-      toast.error("Помилка збереження");
+      setEditState((s) => s && { ...s, saving: false });
     }
   }
 
@@ -440,9 +464,7 @@ export function ScheduleManager({ students }: Props) {
                         <SlotRow
                           key={slot.id}
                           slot={slot}
-                          onAssign={slot.isGroup ? undefined : () => openAssign(slot)}
-                          onEditGroup={slot.isGroup ? () => openEditGroup(slot) : undefined}
-                          onToggleShowAsFree={slot.isGroup ? () => toggleShowAsFree(slot) : undefined}
+                          onClick={() => openEdit(slot)}
                           onDelete={() => setDeleteSlot(slot)}
                           onToggleRecurring={() => setToggleSlot(slot)}
                         />
@@ -591,14 +613,29 @@ export function ScheduleManager({ students }: Props) {
               </button>
             </div>
             {newSlot.isGroup ? (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Клієнти групи</Label>
-                <MultiStudentPicker
-                  value={newSlot.groupStudentIds}
-                  onChange={(ids) => setNewSlot((s) => ({ ...s, groupStudentIds: ids }))}
-                  students={sortedStudents}
-                />
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Клієнти групи (необов&apos;язково)</Label>
+                  <MultiStudentPicker
+                    value={newSlot.groupStudentIds}
+                    onChange={(ids) => setNewSlot((s) => ({ ...s, groupStudentIds: ids }))}
+                    students={sortedStudents}
+                  />
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-border/50 px-4 py-3 hover:bg-muted/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newSlot.showAsFree}
+                    onChange={(e) => setNewSlot((s) => ({ ...s, showAsFree: e.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">Вільно для запису</p>
+                    <p className="text-xs text-muted-foreground">Відображати в публічному розкладі</p>
+                  </div>
+                  <Eye className={`h-4 w-4 ml-auto ${newSlot.showAsFree ? "text-primary" : "text-muted-foreground/40"}`} />
+                </label>
+              </>
             ) : (
               <div className="space-y-1.5">
                 <Label className="text-xs">Клієнт (необов&apos;язково)</Label>
@@ -707,34 +744,122 @@ export function ScheduleManager({ students }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* ── Assign Student Dialog ── */}
-      <Dialog open={!!assignSlot} onOpenChange={(o) => !o && setAssignSlot(null)}>
+      {/* ── Unified Edit Dialog ── */}
+      <Dialog open={!!editState} onOpenChange={(o) => !o && setEditState(null)}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Прив&apos;язати клієнта</DialogTitle></DialogHeader>
-          {assignSlot && (
+          <DialogHeader><DialogTitle>Редагувати заняття</DialogTitle></DialogHeader>
+          {editState && (
             <div className="space-y-4 pt-2">
-              <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm">
-                <p className="font-medium">{formatDayLabel(assignSlot.date)}</p>
-                <p className="text-muted-foreground">{assignSlot.startTime} – {assignSlot.endTime}</p>
-              </div>
+              {/* Date */}
               <div className="space-y-1.5">
-                <Label>Клієнт</Label>
-                <StudentPicker
-                  value={assignStudent}
-                  onChange={setAssignStudent}
-                  students={sortedStudents}
+                <Label className="text-xs">
+                  Дата{" "}
+                  <span className="text-muted-foreground font-normal">
+                    ({new Date(editState.date + "T12:00:00").toLocaleDateString("uk-UA", { weekday: "long" })})
+                  </span>
+                </Label>
+                <Input
+                  ref={editDateRef}
+                  type="date"
+                  value={editState.date}
+                  onChange={(e) => setEditState((s) => s && { ...s, date: e.target.value })}
                 />
               </div>
-              {assignSlot.isRecurring && (
+              {/* Time */}
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs">Початок</Label>
+                  <Input
+                    ref={editStartTimeRef}
+                    type="time"
+                    value={editState.startTime}
+                    onChange={(e) => setEditState((s) => {
+                      if (!s) return s;
+                      const newStart = e.target.value;
+                      return { ...s, startTime: newStart, endTime: computeEndTime(newStart, s.durationMin) };
+                    })}
+                  />
+                </div>
+                <div className="w-24 space-y-1.5">
+                  <Label className="text-xs">Хв.</Label>
+                  <Input
+                    ref={editDurationRef}
+                    type="text"
+                    inputMode="numeric"
+                    value={editState.durationStr}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9]/g, "");
+                      setEditState((s) => {
+                        if (!s) return s;
+                        const parsed = parseInt(raw, 10);
+                        if (!isNaN(parsed) && parsed >= 10) {
+                          return { ...s, durationStr: raw, durationMin: parsed, endTime: computeEndTime(s.startTime, parsed) };
+                        }
+                        return { ...s, durationStr: raw };
+                      });
+                    }}
+                    onBlur={() => setEditState((s) => {
+                      if (!s) return s;
+                      const parsed = parseInt(s.durationStr, 10);
+                      const clamped = isNaN(parsed) || parsed < 10 ? 60 : parsed;
+                      return { ...s, durationMin: clamped, durationStr: String(clamped), endTime: computeEndTime(s.startTime, clamped) };
+                    })}
+                  />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Кінець</Label>
+                  <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-mono text-muted-foreground">
+                    {editState.endTime}
+                  </div>
+                </div>
+              </div>
+              {/* Students */}
+              {editState.slot.isGroup ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Учасники</Label>
+                  <MultiStudentPicker
+                    value={editState.groupStudentIds}
+                    onChange={(ids) => setEditState((s) => s && { ...s, groupStudentIds: ids })}
+                    students={sortedStudents}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Клієнт</Label>
+                  <StudentPicker
+                    value={editState.studentId}
+                    onChange={(id) => setEditState((s) => s && { ...s, studentId: id })}
+                    students={sortedStudents}
+                  />
+                </div>
+              )}
+              {/* showAsFree — group only */}
+              {editState.slot.isGroup && (
+                <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-border/50 px-4 py-3 hover:bg-muted/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editState.showAsFree}
+                    onChange={(e) => setEditState((s) => s && { ...s, showAsFree: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">Вільно для запису</p>
+                    <p className="text-xs text-muted-foreground">Відображати в публічному розкладі</p>
+                  </div>
+                  <Eye className={`h-4 w-4 ml-auto ${editState.showAsFree ? "text-primary" : "text-muted-foreground/40"}`} />
+                </label>
+              )}
+              {/* applyTo — recurring only */}
+              {editState.slot.isRecurring && (
                 <div className="space-y-2">
                   <Label className="text-xs">Застосувати до</Label>
                   <div className="flex gap-2">
                     {(["one", "future"] as const).map((v) => (
                       <button
                         key={v}
-                        onClick={() => setAssignApplyTo(v)}
+                        onClick={() => setEditState((s) => s && { ...s, applyTo: v })}
                         className={`flex-1 text-sm py-2 rounded-lg border transition-colors ${
-                          assignApplyTo === v
+                          editState.applyTo === v
                             ? "border-primary bg-primary/10 text-primary font-medium"
                             : "border-border/50 text-muted-foreground hover:border-border"
                         }`}
@@ -746,40 +871,10 @@ export function ScheduleManager({ students }: Props) {
                 </div>
               )}
               <div className="flex gap-2 pt-1">
-                <Button onClick={confirmAssign} disabled={assigning} className="flex-1">
-                  {assigning ? "Зберігаємо..." : "Зберегти"}
+                <Button onClick={confirmEdit} disabled={editState.saving} className="flex-1">
+                  {editState.saving ? "Зберігаємо..." : "Зберегти"}
                 </Button>
-                <Button variant="outline" onClick={() => setAssignSlot(null)}>Скасувати</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Edit Group Dialog ── */}
-      <Dialog open={!!editGroupSlot} onOpenChange={(o) => !o && setEditGroupSlot(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Редагувати групу</DialogTitle></DialogHeader>
-          {editGroupSlot && (
-            <div className="space-y-4 pt-1">
-              <div className="text-xs text-muted-foreground">
-                {editGroupSlot.date} · {editGroupSlot.startTime}–{editGroupSlot.endTime}
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Учасники</Label>
-                <MultiStudentPicker
-                  value={editGroupIds}
-                  onChange={setEditGroupIds}
-                  students={students}
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button onClick={confirmEditGroup} disabled={editingGroup} className="flex-1">
-                  {editingGroup ? "Зберігаємо..." : "Зберегти"}
-                </Button>
-                <Button variant="ghost" onClick={() => setEditGroupSlot(null)} className="flex-1">
-                  Скасувати
-                </Button>
+                <Button variant="outline" onClick={() => setEditState(null)}>Скасувати</Button>
               </div>
             </div>
           )}
@@ -961,14 +1056,12 @@ function MultiStudentPicker({ value, onChange, students }: {
 
 interface SlotRowProps {
   slot: SlotData;
-  onAssign?: () => void;
-  onEditGroup?: () => void;
-  onToggleShowAsFree?: () => void;
+  onClick: () => void;
   onDelete: () => void;
   onToggleRecurring: () => void;
 }
 
-function SlotRow({ slot, onAssign, onEditGroup, onToggleShowAsFree, onDelete, onToggleRecurring }: SlotRowProps) {
+function SlotRow({ slot, onClick, onDelete, onToggleRecurring }: SlotRowProps) {
   const isRecurring = slot.isRecurring;
   const isGroup = slot.isGroup;
   const hasStudent = isGroup ? slot.groupStudents.length > 0 : !!slot.student;
@@ -984,8 +1077,8 @@ function SlotRow({ slot, onAssign, onEditGroup, onToggleShowAsFree, onDelete, on
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors ${onAssign ? "cursor-pointer" : ""} ${colors.card}`}
-      onClick={onAssign}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors cursor-pointer hover:brightness-95 ${colors.card}`}
+      onClick={onClick}
     >
       {/* Color indicator */}
       <div className={`w-1 h-8 rounded-full shrink-0 ${colors.bar}`} />
@@ -1033,36 +1126,14 @@ function SlotRow({ slot, onAssign, onEditGroup, onToggleShowAsFree, onDelete, on
         {isRecurring ? "Щотижнево" : "Разове"}
       </button>
 
-      {/* Group-specific controls */}
-      {isGroup && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggleShowAsFree?.(); }}
-          title={slot.showAsFree ? "Відображається як вільний у публічному розкладі — натисніть щоб приховати" : "Показати як вільний у публічному розкладі"}
-          className={`p-1.5 rounded-md transition-colors shrink-0 ${slot.showAsFree ? "text-primary hover:bg-white/60" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-white/60"}`}
-        >
-          {slot.showAsFree ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-        </button>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-0.5 shrink-0">
-        {isGroup && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onEditGroup?.(); }}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/60 transition-colors"
-            title="Редагувати учасників групи"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-white/60 transition-colors"
-          title="Видалити"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      {/* Delete */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-white/60 transition-colors shrink-0"
+        title="Видалити"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
