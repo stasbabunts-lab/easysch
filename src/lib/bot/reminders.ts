@@ -106,11 +106,13 @@ export async function sendPaymentRequestNotification(
   studentTelegramId: string,
   paymentDetails: string,
   amountTotal: number,
-  postLessonNote?: string | null
+  postLessonNote?: string | null,
+  description?: string | null
 ) {
   const amountStr = formatAmount(amountTotal);
   let text = `💳 Запит на оплату\n\n`;
   text += `Сума до сплати: ${amountStr}\n\n`;
+  if (description?.trim()) text += `📝 ${description.trim()}\n\n`;
   text += `Реквізити:\n${paymentDetails}\n\n`;
   text += `Будь ласка сплачуйте точну суму`;
   if (postLessonNote?.trim()) text += `\n\n${postLessonNote.trim()}`;

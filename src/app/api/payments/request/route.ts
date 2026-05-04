@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       effectivePaymentDetails,
       amountTotal,
       student.teacher.postLessonNote,
+      description || null,
     ).catch(() => null);
     await logNotification({
       teacherId: session.user.id,
