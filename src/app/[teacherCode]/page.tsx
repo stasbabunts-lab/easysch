@@ -8,6 +8,7 @@ interface Slot {
   endTime: string;
   durationMin: number;
   isRecurring: boolean;
+  isGroup: boolean;
 }
 
 async function fetchSlots(code: string) {
@@ -81,7 +82,7 @@ export default async function PublicSchedulePage({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground justify-center">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground justify-center flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             Щотижнево
@@ -89,6 +90,10 @@ export default async function PublicSchedulePage({
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500"></span>
             Разове
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+            Групове
           </div>
         </div>
 
@@ -109,33 +114,29 @@ export default async function PublicSchedulePage({
                     {formatDate(date)}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {grouped.get(date)!.map((slot, i) => (
-                      <div
-                        key={i}
-                        className={`px-3 py-2 rounded-lg text-sm font-mono font-medium flex items-center gap-1.5 ${
-                          slot.isRecurring
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-blue-50 text-blue-700 border border-blue-200"
-                        }`}
-                      >
-                        <span>{slot.startTime} – {slot.endTime}</span>
-                        {slot.isRecurring ? (
+                    {grouped.get(date)!.map((slot, i) => {
+                      const colors = slot.isGroup
+                        ? { card: "bg-purple-50 text-purple-700 border-purple-200", badge: "bg-purple-100 text-purple-700" }
+                        : slot.isRecurring
+                          ? { card: "bg-emerald-50 text-emerald-700 border-emerald-200", badge: "bg-emerald-100 text-emerald-700" }
+                          : { card: "bg-blue-50 text-blue-700 border-blue-200", badge: "bg-blue-100 text-blue-700" };
+                      const label = slot.isGroup ? "👥" : slot.isRecurring ? "🔁" : "1×";
+                      const title = slot.isGroup ? "Групове" : slot.isRecurring ? "Щотижнево" : "Разове";
+                      return (
+                        <div
+                          key={i}
+                          className={`px-3 py-2 rounded-lg text-sm font-mono font-medium flex items-center gap-1.5 border ${colors.card}`}
+                        >
+                          <span>{slot.startTime} – {slot.endTime}</span>
                           <span
-                            className="text-[10px] font-sans font-semibold bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded-sm"
-                            title="Щотижнево"
+                            className={`text-[10px] font-sans font-semibold px-1 py-0.5 rounded-sm ${colors.badge}`}
+                            title={title}
                           >
-                            🔁
+                            {label}
                           </span>
-                        ) : (
-                          <span
-                            className="text-[10px] font-sans font-semibold bg-blue-100 text-blue-700 px-1 py-0.5 rounded-sm"
-                            title="Разове"
-                          >
-                            1×
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

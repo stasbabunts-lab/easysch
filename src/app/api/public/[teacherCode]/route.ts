@@ -34,6 +34,7 @@ export async function GET(
       endTime: true,
       durationMin: true,
       isRecurring: true,
+      isGroup: true,
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
@@ -48,6 +49,7 @@ export async function GET(
       endTime: s.endTime,
       durationMin: s.durationMin,
       isRecurring: s.isRecurring,
+      isGroup: s.isGroup,
     })),
   });
 }
