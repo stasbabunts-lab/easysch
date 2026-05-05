@@ -824,7 +824,12 @@ export function ScheduleManager({ students }: Props) {
               {/* Students */}
               {editState.slot.isGroup ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Учасники</Label>
+                  <Label className="text-xs">
+                    Учасники{" "}
+                    <span className="text-muted-foreground font-normal">
+                      — тільки для цього заняття
+                    </span>
+                  </Label>
                   <MultiStudentPicker
                     value={editState.groupStudentIds}
                     onChange={(ids) => setEditState((s) => s && { ...s, groupStudentIds: ids })}

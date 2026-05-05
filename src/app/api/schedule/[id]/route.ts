@@ -83,6 +83,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         data: bulkData,
       });
     }
+    // Group students always apply to this single slot only — each occurrence can have its own attendees
+    if (slot.isGroup && groupStudentIds !== undefined && Array.isArray(groupStudentIds)) {
+      await prisma.groupSlotStudent.deleteMany({ where: { slotId: id } });
+      if (groupStudentIds.length > 0) {
+        await prisma.groupSlotStudent.createMany({
+          data: groupStudentIds.map((sid: string) => ({ slotId: id, studentId: sid })),
+        });
+      }
+    }
     const updated = await prisma.availabilitySlot.findMany({
       where: { recurringGroupId: slot.recurringGroupId, isActive: true },
       include: slotInclude,
