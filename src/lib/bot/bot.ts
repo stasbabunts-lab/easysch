@@ -197,7 +197,14 @@ bot.command("lessons", async (ctx) => {
 
   for (const [i, student] of students.entries()) {
     const slots = await prisma.availabilitySlot.findMany({
-      where: { studentId: student.id, date: { gte: today, lte: in30Days }, isActive: true },
+      where: {
+        isActive: true,
+        date: { gte: today, lte: in30Days },
+        OR: [
+          { studentId: student.id },
+          { isGroup: true, groupStudents: { some: { studentId: student.id } } },
+        ],
+      },
       orderBy: { date: "asc" },
       take: 5,
     });
@@ -209,7 +216,7 @@ bot.command("lessons", async (ctx) => {
     const lines = slots.map((s) => {
       const d = new Date(s.date + "T12:00:00");
       const dateLabel = d.toLocaleDateString("uk-UA", { weekday: "short", day: "numeric", month: "short" });
-      return `• ${dateLabel}, ${s.startTime}–${s.endTime} ${s.isRecurring ? "🔁" : "1️⃣"}`;
+      return `• ${dateLabel}, ${s.startTime}–${s.endTime} ${s.isGroup ? "👥" : s.isRecurring ? "🔁" : "1️⃣"}`;
     });
     sections.push(header + lines.join("\n"));
   }
@@ -250,8 +257,16 @@ bot.command("today", async (ctx) => {
 
   const today = new Date().toISOString().slice(0, 10);
   const slots = await prisma.availabilitySlot.findMany({
-    where: { teacherId: teacher.id, isActive: true, studentId: { not: null }, date: today },
-    include: { student: { select: { name: true } } },
+    where: {
+      teacherId: teacher.id,
+      isActive: true,
+      date: today,
+      OR: [{ studentId: { not: null } }, { isGroup: true }],
+    },
+    include: {
+      student: { select: { name: true } },
+      groupStudents: { include: { student: { select: { name: true } } } },
+    },
     orderBy: { startTime: "asc" },
   });
 
@@ -260,7 +275,13 @@ bot.command("today", async (ctx) => {
     return;
   }
 
-  const lines = slots.map((s) => `• ${s.startTime}–${s.endTime} — <b>${s.student!.name}</b>`);
+  const lines = slots.map((s) => {
+    if (s.isGroup) {
+      const names = s.groupStudents.map((gs) => gs.student.name).join(", ") || "Групове";
+      return `• ${s.startTime}–${s.endTime} — 👥 ${names}`;
+    }
+    return `• ${s.startTime}–${s.endTime} — <b>${s.student!.name}</b>`;
+  });
   await ctx.reply(`📅 <b>Заняття сьогодні</b>\n\n${lines.join("\n")}`, { parse_mode: "HTML" });
 });
 
@@ -280,10 +301,13 @@ bot.command("week", async (ctx) => {
     where: {
       teacherId: teacher.id,
       isActive: true,
-      studentId: { not: null },
       date: { gte: today, lte: in7Days },
+      OR: [{ studentId: { not: null } }, { isGroup: true }],
     },
-    include: { student: { select: { name: true } } },
+    include: {
+      student: { select: { name: true } },
+      groupStudents: { include: { student: { select: { name: true } } } },
+    },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
 
@@ -303,7 +327,13 @@ bot.command("week", async (ctx) => {
   for (const [date, daySlots] of byDate) {
     const d = new Date(date + "T12:00:00");
     const dayLabel = d.toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "short" });
-    const lines = daySlots.map((s) => `  • ${s.startTime}–${s.endTime} — ${s.student!.name}`);
+    const lines = daySlots.map((s) => {
+      if (s.isGroup) {
+        const names = s.groupStudents.map((gs) => gs.student.name).join(", ") || "Групове";
+        return `  • ${s.startTime}–${s.endTime} — 👥 ${names}`;
+      }
+      return `  • ${s.startTime}–${s.endTime} — ${s.student!.name}`;
+    });
     sections.push(`<b>${dayLabel}</b>\n${lines.join("\n")}`);
   }
 
@@ -372,7 +402,14 @@ bot.command("next", async (ctx) => {
 
   for (const student of students) {
     const slot = await prisma.availabilitySlot.findFirst({
-      where: { studentId: student.id, isActive: true, date: { gte: today } },
+      where: {
+        isActive: true,
+        date: { gte: today },
+        OR: [
+          { studentId: student.id },
+          { isGroup: true, groupStudents: { some: { studentId: student.id } } },
+        ],
+      },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
     if (slot) {
