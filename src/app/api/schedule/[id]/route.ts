@@ -176,6 +176,14 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         date: { gte: slot.date },
       },
     });
+    // End the recurrence here: detach the remaining (earlier) occurrences from the
+    // series so extendExpiringSeries won't regenerate the slots we just deleted.
+    // Without this, the remaining tail stays within the 21-day extension window and
+    // the deleted future slots reappear on the next schedule load.
+    await prisma.availabilitySlot.updateMany({
+      where: { recurringGroupId: slot.recurringGroupId, isActive: true },
+      data: { isRecurring: false, recurringGroupId: null },
+    });
     return NextResponse.json({ ok: true, mode: "future", groupId: slot.recurringGroupId });
   } else {
     // Single slot — compensate balance if it was already conducted
