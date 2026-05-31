@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
-import { getStudentBalance } from "@/lib/balance";
+import { getStudentBalance, GROUP_BILLING_START } from "@/lib/balance";
 import { StudentActions } from "@/components/students/StudentActions";
 import { PriceField, GroupPriceField, NotesField, PaymentDetailsField } from "@/components/students/StudentEditableFields";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
@@ -63,12 +63,36 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound();
 
+  // Conducted group lessons (billed since the cutoff) — student.slots only holds
+  // individual slots, so fetch group slots separately to list them alongside.
+  const groupSlots = await prisma.availabilitySlot.findMany({
+    where: {
+      isGroup: true,
+      isActive: true,
+      date: { gte: GROUP_BILLING_START },
+      groupStudents: { some: { studentId: id } },
+      OR: [
+        { date: { lt: today } },
+        { date: today, endTime: { lte: currentTime } },
+      ],
+    },
+    select: { id: true, date: true },
+    orderBy: { date: "desc" },
+  });
+
   // Real balance calculation (shared helper — counts individual + group lessons)
   const bal = await getStudentBalance(student);
   const conductedCount = bal.conductedCount;
   const totalOwedKopecks = bal.totalOwed;
   const credit = bal.credit;
   const debt = bal.debt;
+
+  // Unified conducted-lessons list (individual + billable group), newest first
+  const groupPrice = student.groupLessonPrice ?? student.lessonPrice;
+  const conductedLessons = [
+    ...student.slots.map((s) => ({ id: s.id, date: s.date, price: student.lessonPrice, isGroup: false })),
+    ...groupSlots.map((s) => ({ id: s.id, date: s.date, price: groupPrice, isGroup: true })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
 
   const openRequestsTotal = student.paymentRequests
     .filter((r) => r.fulfilledBy === null)
@@ -141,14 +165,19 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           <CardTitle className="text-base">Борги (проведені заняття)</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {student.slots.length === 0 ? (
+          {conductedLessons.length === 0 ? (
             <p className="text-sm text-muted-foreground px-6 pb-5">Занять ще не проведено</p>
           ) : (
             <div className="max-h-72 overflow-y-auto">
-              {student.slots.map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between px-6 py-2.5 border-b border-border/30 last:border-0">
-                  <p className="text-sm">{fmtDate(slot.date)}</p>
-                  <p className="text-sm font-semibold tabular-nums">{formatAmount(student.lessonPrice)}</p>
+              {conductedLessons.map((lesson) => (
+                <div key={lesson.id} className="flex items-center justify-between px-6 py-2.5 border-b border-border/30 last:border-0">
+                  <p className="text-sm flex items-center gap-2">
+                    {fmtDate(lesson.date)}
+                    {lesson.isGroup && (
+                      <span className="text-[10px] font-medium bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">група</span>
+                    )}
+                  </p>
+                  <p className="text-sm font-semibold tabular-nums">{formatAmount(lesson.price)}</p>
                 </div>
               ))}
               <div className="flex items-center justify-between px-6 py-2.5 bg-muted/30">
