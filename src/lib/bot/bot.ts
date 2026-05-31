@@ -2,6 +2,7 @@ import { Bot } from "grammy";
 import { prisma } from "@/lib/prisma";
 import { formatAmount } from "@/lib/format";
 import { sendTelegramMessage } from "@/lib/bot/reminders";
+import { getStudentBalance } from "@/lib/balance";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -142,31 +143,9 @@ bot.command("balance", async (ctx) => {
     return;
   }
 
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const currentTime = now.toISOString().slice(11, 16);
-
   const sections: string[] = [];
   for (const [i, student] of students.entries()) {
-    const conductedCount = await prisma.availabilitySlot.count({
-      where: {
-        studentId: student.id,
-        isActive: true,
-        OR: [
-          { date: { lt: today } },
-          { date: today, endTime: { lte: currentTime } },
-        ],
-      },
-    });
-    const payments = await prisma.payment.findMany({
-      where: { studentId: student.id, isIgnored: false },
-      select: { amountReceived: true },
-    });
-    const totalOwed = conductedCount * student.lessonPrice;
-    const totalPaid = payments.reduce((s, p) => s + p.amountReceived - student.paymentOffset, 0);
-    const effectiveBalance = totalPaid - totalOwed + student.balanceAdjustmentKopecks;
-    const credit = Math.max(effectiveBalance, 0);
-    const debt = Math.max(-effectiveBalance, 0);
+    const { credit, debt } = await getStudentBalance(student);
 
     let balanceLine: string;
     if (credit > 0) balanceLine = `✅ Баланс: +${formatAmount(credit)}`;
@@ -349,7 +328,6 @@ bot.command("debts", async (ctx) => {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
   const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
@@ -357,21 +335,18 @@ bot.command("debts", async (ctx) => {
   const students = await prisma.student.findMany({
     where: {
       teacherId: teacher.id,
-      slots: { some: { isActive: true, date: { gte: sixtyDaysAgoStr } } },
-    },
-    include: {
-      slots: { where: { isActive: true, date: { lte: today } }, select: { id: true } },
-      payments: { where: { isIgnored: false }, select: { amountReceived: true } },
+      OR: [
+        { slots: { some: { isActive: true, date: { gte: sixtyDaysAgoStr } } } },
+        { groupSlots: { some: { slot: { isActive: true, date: { gte: sixtyDaysAgoStr } } } } },
+      ],
     },
   });
 
-  const debtors = students
-    .map((s) => {
-      const totalOwed = s.slots.length * s.lessonPrice;
-      const totalPaid = s.payments.reduce((sum, p) => sum + p.amountReceived - s.paymentOffset, 0);
-      const effectiveBalance = totalPaid - totalOwed + s.balanceAdjustmentKopecks;
-      return { name: s.name, debt: effectiveBalance < 0 ? -effectiveBalance : 0 };
-    })
+  const debtors = (
+    await Promise.all(
+      students.map(async (s) => ({ name: s.name, debt: (await getStudentBalance(s)).debt }))
+    )
+  )
     .filter((s) => s.debt > 0)
     .sort((a, b) => b.debt - a.debt);
 

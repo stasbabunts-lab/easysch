@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatOffset } from "@/lib/payment-offset";
+import { getStudentBalance } from "@/lib/balance";
 
 // GET /api/payments
 // Returns { clients: ActiveClient[], transactions: TxItem[] }
@@ -11,51 +12,22 @@ export async function GET() {
 
   const teacherId = session.user.id;
 
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);          // "YYYY-MM-DD" UTC
-  const currentTime = now.toISOString().slice(11, 16);  // "HH:MM" UTC
-
-  // "Active" = student has a slot in the last 60 days / future, OR has at least one payment
+  // "Active" = student has an individual OR group slot in the last 60 days / future,
+  // OR has at least one payment.
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-  const thirtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
+  const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
 
   const students = await prisma.student.findMany({
     where: {
       teacherId,
       OR: [
-        {
-          slots: {
-            some: {
-              isActive: true,
-              date: { gte: thirtyDaysAgoStr },
-            },
-          },
-        },
-        {
-          payments: { some: {} },
-        },
+        { slots: { some: { isActive: true, date: { gte: sixtyDaysAgoStr } } } },
+        { groupSlots: { some: { slot: { isActive: true, date: { gte: sixtyDaysAgoStr } } } } },
+        { payments: { some: {} } },
       ],
     },
     include: {
-      // Conducted slots: past days + today's slots whose startTime has already passed
-      slots: {
-        where: {
-          isActive: true,
-          OR: [
-            { date: { lt: today } },
-            { date: today, endTime: { lte: currentTime } },
-          ],
-        },
-        select: { id: true, date: true },
-        orderBy: { date: "desc" },
-      },
-      // All non-ignored payments received from this student
-      payments: {
-        where: { isIgnored: false },
-        select: { amountReceived: true },
-      },
-      // Open payment requests
       paymentRequests: {
         where: { fulfilledBy: null },
         select: { amountBase: true },
@@ -64,41 +36,28 @@ export async function GET() {
     orderBy: { createdAt: "asc" }, // stable fallback
   });
 
-  const clients = students.map((s) => {
-    const conductedCount = s.slots.length;
-    const totalOwed = conductedCount * s.lessonPrice;
-
-    // Strip identification kopecks from each payment before summing
-    const totalPaid = s.payments.reduce(
-      (sum, p) => sum + p.amountReceived - s.paymentOffset,
-      0
-    );
-
-    // Apply manual adjustment (balanceAdjustmentKopecks is stored as correction to computed balance)
-    const computedBalance = totalPaid - totalOwed;
-    const effectiveBalance = computedBalance + s.balanceAdjustmentKopecks;
-
-    // Most recent conducted slot date (slots are already ordered desc)
-    const lastSlotDate = s.slots[0]?.date ?? null;
-
-    return {
-      id: s.id,
-      name: s.name,
-      offset: s.paymentOffset,
-      offsetFormatted: formatOffset(s.paymentOffset),
-      lessonPrice: s.lessonPrice,
-      conductedCount,
-      totalOwed,
-      totalPaid,
-      computedBalance,
-      balanceAdjustmentKopecks: s.balanceAdjustmentKopecks,
-      credit: effectiveBalance > 0 ? effectiveBalance : 0,
-      debt: effectiveBalance < 0 ? -effectiveBalance : 0,
-      lastSlotDate,
-      openRequestCount: s.paymentRequests.length,
-      openRequestTotal: s.paymentRequests.reduce((sum, r) => sum + r.amountBase, 0),
-    };
-  });
+  const clients = await Promise.all(
+    students.map(async (s) => {
+      const bal = await getStudentBalance(s);
+      return {
+        id: s.id,
+        name: s.name,
+        offset: s.paymentOffset,
+        offsetFormatted: formatOffset(s.paymentOffset),
+        lessonPrice: s.lessonPrice,
+        conductedCount: bal.conductedCount,
+        totalOwed: bal.totalOwed,
+        totalPaid: bal.totalPaid,
+        computedBalance: bal.computedBalance,
+        balanceAdjustmentKopecks: s.balanceAdjustmentKopecks,
+        credit: bal.credit,
+        debt: bal.debt,
+        lastSlotDate: bal.lastConductedDate,
+        openRequestCount: s.paymentRequests.length,
+        openRequestTotal: s.paymentRequests.reduce((sum, r) => sum + r.amountBase, 0),
+      };
+    })
+  );
 
   // Sort by most recent conducted lesson descending; clients with no lessons go last
   clients.sort((a, b) => {

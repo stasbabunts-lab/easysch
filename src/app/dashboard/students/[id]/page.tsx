@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
+import { getStudentBalance } from "@/lib/balance";
 import { StudentActions } from "@/components/students/StudentActions";
 import { PriceField, GroupPriceField, NotesField, PaymentDetailsField } from "@/components/students/StudentEditableFields";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
@@ -62,16 +63,12 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound();
 
-  // Real balance calculation (same formula as /api/payments)
-  const conductedCount = student.slots.length;
-  const totalOwedKopecks = conductedCount * student.lessonPrice;
-  const totalPaidKopecks = student.payments
-    .filter((p) => !p.isIgnored)
-    .reduce((s, p) => s + p.amountReceived - student.paymentOffset, 0);
-  const computedBalance = totalPaidKopecks - totalOwedKopecks;
-  const effectiveBalance = computedBalance + student.balanceAdjustmentKopecks;
-  const credit = Math.max(effectiveBalance, 0);
-  const debt = Math.max(-effectiveBalance, 0);
+  // Real balance calculation (shared helper — counts individual + group lessons)
+  const bal = await getStudentBalance(student);
+  const conductedCount = bal.conductedCount;
+  const totalOwedKopecks = bal.totalOwed;
+  const credit = bal.credit;
+  const debt = bal.debt;
 
   const openRequestsTotal = student.paymentRequests
     .filter((r) => r.fulfilledBy === null)

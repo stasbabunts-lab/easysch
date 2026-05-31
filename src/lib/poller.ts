@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { getBankAdapter } from "./bank";
 import { MockBankAdapter } from "./bank/mock-adapter";
 import { extendExpiringSeries } from "./recurring";
+import { getStudentBalance } from "./balance";
 import {
   sendPaymentConfirmation,
   sendTeacherPaymentNotification,
@@ -290,9 +291,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
       const lesson = slot.lessons[0];
       if (!lesson) continue;
 
-      const effectiveBalance = await getStudentEffectiveBalance(
-        slot.student.id, slot.student.paymentOffset, slot.student.lessonPrice, slot.student.balanceAdjustmentKopecks
-      );
+      const { effectiveBalance } = await getStudentBalance(slot.student);
       if (effectiveBalance > 0) {
         await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
         continue;
@@ -345,9 +344,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         const lesson = slot.lessons.find((l) => l.studentId === student.id);
         if (!lesson) continue;
 
-        const effectiveBalance = await getStudentEffectiveBalance(
-          student.id, student.paymentOffset, student.groupLessonPrice ?? student.lessonPrice, student.balanceAdjustmentKopecks
-        );
+        const { effectiveBalance } = await getStudentBalance(student);
         if (effectiveBalance > 0) {
           await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
           continue;
@@ -384,30 +381,6 @@ export async function pollPayments(teacherId: string): Promise<number> {
 
   await prisma.teacher.update({ where: { id: teacherId }, data: { lastPolledAt: new Date() } });
   return matched;
-}
-
-async function getStudentEffectiveBalance(studentId: string, paymentOffset: number, lessonPrice: number, balanceAdjustmentKopecks: number): Promise<number> {
-  const nowIso = new Date().toISOString();
-  const today = nowIso.slice(0, 10);
-  const currentTime = nowIso.slice(11, 16);
-
-  const conductedCount = await prisma.availabilitySlot.count({
-    where: {
-      studentId,
-      isActive: true,
-      OR: [
-        { date: { lt: today } },
-        { date: today, endTime: { lte: currentTime } },
-      ],
-    },
-  });
-  const payments = await prisma.payment.findMany({
-    where: { studentId, isIgnored: false },
-    select: { amountReceived: true },
-  });
-  const totalOwed = conductedCount * lessonPrice;
-  const totalPaid = payments.reduce((s, p) => s + p.amountReceived - paymentOffset, 0);
-  return totalPaid - totalOwed + balanceAdjustmentKopecks;
 }
 
 function parseMinutes(raw: string): number[] {
