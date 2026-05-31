@@ -27,6 +27,7 @@ model Teacher {
   paymentDetails         String?   // free-text: card number, IBAN, phone for Pay, etc.
   postLessonNote         String?   // optional 4th line in post-lesson payment reminder
   subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
+  weekStartsMonday       Boolean   @default(false) // schedule view: align weeks to Monday, dim past days
 
   slots                AvailabilitySlot[]
   students             Student[]

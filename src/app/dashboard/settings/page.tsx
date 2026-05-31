@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   Copy, Check, ExternalLink, Bell, MessageCircle,
   Building2, ShieldCheck, Plus, Trash2, Eye, EyeOff,
-  Info, ToggleLeft, ToggleRight, Phone,
+  Info, ToggleLeft, ToggleRight, Phone, CalendarDays,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/labels";
@@ -25,6 +25,7 @@ interface TeacherSettings {
   name: string;
   displayName: string;
   alias: string;
+  weekStartsMonday: boolean;
 }
 
 interface BankAccount {
@@ -46,11 +47,13 @@ export default function SettingsPage() {
     name: "",
     displayName: "",
     alias: "",
+    weekStartsMonday: false,
   });
   const [savingAlias, setSavingAlias] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
   const [savingReminders, setSavingReminders] = useState(false);
   const [savingDisplay, setSavingDisplay] = useState(false);
+  const [savingWeekStart, setSavingWeekStart] = useState(false);
 
   // Bank accounts
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -78,6 +81,7 @@ export default function SettingsPage() {
           name: data.name ?? "",
           displayName: data.displayName ?? "",
           alias: data.alias ?? "",
+          weekStartsMonday: data.weekStartsMonday ?? false,
         });
       })
       .catch(() => null);
@@ -179,6 +183,26 @@ export default function SettingsPage() {
       toast.error("Помилка збереження");
     } finally {
       setSavingReminders(false);
+    }
+  }
+
+  async function toggleWeekStart() {
+    const next = !settings.weekStartsMonday;
+    setSettings((s) => ({ ...s, weekStartsMonday: next })); // optimistic
+    setSavingWeekStart(true);
+    try {
+      const res = await fetch("/api/teachers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStartsMonday: next }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Збережено");
+    } catch {
+      setSettings((s) => ({ ...s, weekStartsMonday: !next })); // revert
+      toast.error("Помилка збереження");
+    } finally {
+      setSavingWeekStart(false);
     }
   }
 
@@ -420,6 +444,34 @@ export default function SettingsPage() {
               {savingReminders ? "Зберігаємо..." : "Зберегти нагадування"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Schedule view */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Вигляд розкладу
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={toggleWeekStart}
+            disabled={savingWeekStart}
+            className="w-full flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3 text-left hover:bg-muted/50 transition-colors disabled:opacity-60"
+          >
+            <div className="flex-1">
+              <p className="text-sm font-medium">Починати тиждень з понеділка</p>
+              <p className="text-xs text-muted-foreground">
+                Розклад показує повний тиждень (Пн–Нд); минулі дні відображаються блякло.
+              </p>
+            </div>
+            {settings.weekStartsMonday
+              ? <ToggleRight className="h-6 w-6 text-emerald-600 shrink-0" />
+              : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />}
+          </button>
         </CardContent>
       </Card>
 

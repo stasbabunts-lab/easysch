@@ -11,6 +11,11 @@ export default async function SchedulePage() {
     select: { id: true, name: true, createdAt: true },
   });
 
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: session.user.id },
+    select: { weekStartsMonday: true },
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -19,7 +24,7 @@ export default async function SchedulePage() {
           Керуйте заняттями. Клієнти бачать розклад за вашим кодом.
         </p>
       </div>
-      <ScheduleManager students={students} />
+      <ScheduleManager students={students} weekStartsMonday={teacher?.weekStartsMonday ?? false} />
     </div>
   );
 }

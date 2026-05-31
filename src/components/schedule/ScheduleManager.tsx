@@ -72,6 +72,7 @@ function timeToMin(t: string) {
 
 interface Props {
   students: StudentInfo[];
+  weekStartsMonday: boolean;
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -85,6 +86,12 @@ function addDays(date: Date, days: number) {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+/** Monday of the week containing `date` (week starts Mon). */
+function startOfWeekMonday(date: Date) {
+  const day = date.getDay(); // 0=Sun..6=Sat
+  return addDays(date, day === 0 ? -6 : 1 - day);
 }
 
 function formatDayLabel(dateStr: string) {
@@ -102,7 +109,7 @@ function groupByDate(slots: SlotData[]) {
   return map;
 }
 
-export function ScheduleManager({ students }: Props) {
+export function ScheduleManager({ students, weekStartsMonday }: Props) {
   const [slots, setSlots] = useState<SlotData[]>([]);
   const [loading, setLoading] = useState(true);
   // Offset in weeks from today (0 = current 2-week window)
@@ -207,8 +214,10 @@ export function ScheduleManager({ students }: Props) {
 
   useEffect(() => { loadSlots(); }, [loadSlots]);
 
-  // Compute visible date range (1 week window)
-  const windowStart = addDays(new Date(), weekOffset * 7);
+  // Compute visible date range (1 week window).
+  // When weekStartsMonday is on, align the window to Monday; otherwise start from today.
+  const windowBase = weekStartsMonday ? startOfWeekMonday(new Date()) : new Date();
+  const windowStart = addDays(windowBase, weekOffset * 7);
   const windowEnd = addDays(windowStart, 6);
   const windowStartStr = isoDate(windowStart);
   const windowEndStr = isoDate(windowEnd);
@@ -441,13 +450,13 @@ export function ScheduleManager({ students }: Props) {
             const pastDates = isCurrentWindow ? allDates.filter((d) => d < todayStr) : [];
             const activeDates = isCurrentWindow ? allDates.filter((d) => d >= todayStr) : allDates;
 
-            const renderDayCard = (date: string) => {
+            const renderDayCard = (date: string, dimmed = false) => {
               const daySlots = (grouped.get(date) ?? []).sort((a, b) =>
                 a.startTime.localeCompare(b.startTime)
               );
               const isToday = date === todayStr;
               return (
-                <div key={date} className="rounded-xl border border-border/40 bg-card">
+                <div key={date} className={`rounded-xl border border-border/40 bg-card ${dimmed ? "opacity-50" : ""}`}>
                   <div className="px-4 py-2.5 border-b border-border/30 flex items-center gap-2">
                     <span className="text-sm font-semibold capitalize text-muted-foreground">
                       {formatDayLabel(date)}
@@ -477,6 +486,11 @@ export function ScheduleManager({ students }: Props) {
               );
             };
 
+            // Monday-aligned view: show the full week, past days dimmed instead of collapsed
+            if (weekStartsMonday) {
+              return <>{allDates.map((d) => renderDayCard(d, d < todayStr))}</>;
+            }
+
             return (
               <>
                 {/* Collapsed past days — only on current window */}
@@ -500,14 +514,14 @@ export function ScheduleManager({ students }: Props) {
                     </button>
                     {!pastCollapsed && (
                       <div className="px-2 pb-2 space-y-1.5 border-t border-border/20">
-                        {pastDates.map(renderDayCard)}
+                        {pastDates.map((d) => renderDayCard(d))}
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* Current and future days */}
-                {activeDates.map(renderDayCard)}
+                {activeDates.map((d) => renderDayCard(d))}
               </>
             );
           })()}
