@@ -10,14 +10,15 @@ export async function GET() {
   // Auto-extend recurring series that are running out of future instances
   await extendExpiringSeries(session.user.id);
 
-  const today = todayStr();
+  const historyDays = 60;
+  const startDate = daysFromNow(-historyDays);
   const in90Days = daysFromNow(90);
 
   const slots = await prisma.availabilitySlot.findMany({
     where: {
       teacherId: session.user.id,
       isActive: true,
-      date: { gte: today, lte: in90Days },
+      date: { gte: startDate, lte: in90Days },
     },
     include: {
       student: { select: { id: true, name: true, createdAt: true } },

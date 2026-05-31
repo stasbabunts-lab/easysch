@@ -87,6 +87,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const existing = await getStudent(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await prisma.student.delete({ where: { id } });
+  // Student has required relations (Lesson, PaymentRequest) and unique-linked
+  // Payments — none cascade on delete, so the bare delete fails on FK constraints.
+  // Remove dependents first, in FK-safe order, inside one transaction.
+  try {
+    await prisma.$transaction([
+      prisma.payment.deleteMany({ where: { studentId: id } }),
+      prisma.paymentRequest.deleteMany({ where: { studentId: id } }),
+      prisma.lesson.deleteMany({ where: { studentId: id } }),
+      prisma.groupSlotStudent.deleteMany({ where: { studentId: id } }),
+      prisma.availabilitySlot.deleteMany({ where: { studentId: id } }),
+      prisma.student.delete({ where: { id } }),
+    ]);
+  } catch (e) {
+    console.error("Failed to delete student", id, e);
+    return NextResponse.json({ error: "Failed to delete student" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
