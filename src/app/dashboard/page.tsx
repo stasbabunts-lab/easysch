@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
-import { CalendarDays, Users, CreditCard, TrendingUp, Clock, ChevronDown, Bell } from "lucide-react";
+import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell, Rocket } from "lucide-react";
 import { LABELS } from "@/lib/labels";
 import Link from "next/link";
 import { NotificationLog } from "@/components/dashboard/NotificationLog";
@@ -53,12 +53,11 @@ function daysLabel(n: number) {
   return "днів";
 }
 
-function SubscriptionBanner({ expiresAt }: { expiresAt: Date | null }) {
+function SubscriptionPill({ expiresAt }: { expiresAt: Date | null }) {
   if (!expiresAt) return null;
 
   const now = new Date();
-  const msLeft = expiresAt.getTime() - now.getTime();
-  const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   const expired = daysLeft <= 0;
 
   const expiryStr = expiresAt.toLocaleDateString("uk-UA", {
@@ -67,129 +66,22 @@ function SubscriptionBanner({ expiresAt }: { expiresAt: Date | null }) {
     year: "numeric",
   });
 
-  let bg = "bg-emerald-50 border-emerald-200";
-  let textColor = "text-emerald-700";
-  let badgeCls = "bg-emerald-100 text-emerald-800 hover:bg-emerald-200";
-  let label = `Підписка активна, ${daysLeft} ${daysLabel(daysLeft)}`;
-
-  if (expired) {
-    bg = "bg-red-50 border-red-200";
-    textColor = "text-red-700";
-    badgeCls = "bg-red-600 text-white hover:bg-red-700";
-    label = "Підписка закінчилась";
-  } else if (daysLeft <= 3) {
-    bg = "bg-red-50 border-red-200";
-    textColor = "text-red-700";
-    badgeCls = "bg-red-600 text-white hover:bg-red-700";
-    label = `Залишилось ${daysLeft} ${daysLabel(daysLeft)}`;
+  let cls = "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100";
+  if (expired || daysLeft <= 3) {
+    cls = "bg-red-50 border-red-200 text-red-700 hover:bg-red-100";
   } else if (daysLeft <= 7) {
-    bg = "bg-amber-50 border-amber-200";
-    textColor = "text-amber-700";
-    badgeCls = "bg-amber-500 text-white hover:bg-amber-600";
-    label = `Залишилось ${daysLeft} ${daysLabel(daysLeft)}`;
+    cls = "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100";
   }
 
   return (
-    <div className={`flex items-center justify-between gap-4 rounded-xl border px-4 py-3 ${bg}`}>
-      <div className="flex items-center gap-3 min-w-0">
-        <Clock className={`h-4 w-4 shrink-0 ${textColor}`} />
-        <div className="min-w-0">
-          <span className={`text-sm font-medium ${textColor}`}>{label}</span>
-          {!expired && (
-            <span className="text-xs text-muted-foreground ml-2">до {expiryStr}</span>
-          )}
-        </div>
-      </div>
-      <Link
-        href="/subscribe"
-        className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${badgeCls}`}
-      >
-        Продовжити
-      </Link>
-    </div>
-  );
-}
-
-function GettingStarted() {
-  return (
-    <details className="group rounded-xl border border-border/60 bg-card shadow-sm">
-      <summary className="flex cursor-pointer select-none list-none items-center justify-between px-4 py-3 [&::-webkit-details-marker]:hidden">
-        <span className="flex items-center gap-2 text-sm font-medium">
-          <span>🚀</span>
-          Як розпочати роботу
-        </span>
-        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-      </summary>
-      <div className="border-t border-border/50 px-4 py-5">
-        <ol className="space-y-5 text-sm">
-
-          {/* 1 */}
-          <li className="flex gap-3">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary mt-0.5">1</span>
-            <div className="min-w-0">
-              <Link href="/dashboard/settings" className="font-medium text-foreground hover:text-primary transition-colors">
-                Підключіть Telegram бот
-              </Link>
-              <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                У «Налаштування» знайдіть ваш персональний код і надішліть команду{" "}
-                <code className="bg-muted px-1 py-0.5 rounded text-xs">/start КОД</code> боту{" "}
-                <Link href="https://t.me/EasySchBot" target="_blank" className="text-primary hover:underline">@EasySchBot</Link>.
-                Після цього ви отримуватимете сповіщення про оплати та нагадування про заняття.
-                Клієнти підключаються так само — кожен отримує свій особистий код на сторінці «Клієнти».
-              </p>
-            </div>
-          </li>
-
-          {/* 2 */}
-          <li className="flex gap-3">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary mt-0.5">2</span>
-            <div className="min-w-0">
-              <Link href="/dashboard/settings" className="font-medium text-foreground hover:text-primary transition-colors">
-                Налаштуйте API банку
-              </Link>
-              <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                У «Налаштування» додайте токен вашого банку.
-                Система автоматично перевіряє вхідні транзакції кожні 5 хвилин.{" "}
-                <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
-                кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
-                Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
-              </p>
-            </div>
-          </li>
-
-          {/* 3 */}
-          <li className="flex gap-3">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary mt-0.5">3</span>
-            <div className="min-w-0">
-              <Link href="/dashboard/payments" className="font-medium text-foreground hover:text-primary transition-colors">
-                Заповніть реквізити для оплати
-              </Link>
-              <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                На сторінці «Оплати» вкажіть номер картки або IBAN.
-                Ці реквізити автоматично надсилаються клієнту в Telegram після кожного заняття та коли ви створюєте запит на оплату.
-              </p>
-            </div>
-          </li>
-
-          {/* 4 */}
-          <li className="flex gap-3">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary mt-0.5">4</span>
-            <div className="min-w-0">
-              <Link href="/dashboard/students" className="font-medium text-foreground hover:text-primary transition-colors">
-                Додавайте клієнтів і заняття
-              </Link>
-              <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                У «Клієнти» додайте учнів і вкажіть ціну заняття.
-                У «Розклад» створюйте слоти часу — поки слот не призначено клієнту, він відображається як{" "}
-                <span className="font-medium text-foreground">вільний час</span> на публічній сторінці розкладу.
-                Після призначення клієнту слот стає заняттям і зникає з публічного вигляду.
-              </p>
-            </div>
-          </li>
-
-        </ol>
-      </div>
-    </details>
+    <Link
+      href="/subscribe"
+      title={expired ? "Підписка закінчилась" : `Підписка активна до ${expiryStr}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${cls}`}
+    >
+      <Clock className="h-3.5 w-3.5 shrink-0" />
+      {expired ? "Підписка закінчилась" : `${daysLeft} ${daysLabel(daysLeft)}`}
+    </Link>
   );
 }
 
@@ -260,19 +152,29 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Вітаємо, {session.user.name?.split(" ")[0]}
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Код для клієнтів:{" "}
-          <span className="font-mono font-semibold text-primary bg-primary/8 px-1.5 py-0.5 rounded text-xs">
-            {session.user.teacherCode}
-          </span>
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Вітаємо, {session.user.name?.split(" ")[0]}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Код для клієнтів:{" "}
+            <span className="font-mono font-semibold text-primary bg-primary/8 px-1.5 py-0.5 rounded text-xs">
+              {session.user.teacherCode}
+            </span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <SubscriptionPill expiresAt={teacher?.subscriptionExpiresAt ?? null} />
+          <Link
+            href="/dashboard/guide"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors shadow-sm"
+          >
+            <Rocket className="h-3.5 w-3.5 text-primary" />
+            Як розпочати
+          </Link>
+        </div>
       </div>
-
-      <SubscriptionBanner expiresAt={teacher?.subscriptionExpiresAt ?? null} />
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard label={LABELS.students} value={studentCount} icon={Users} color="text-violet-600" iconBg="bg-violet-50" />
@@ -353,8 +255,6 @@ export default async function DashboardPage() {
           <NotificationLog notifs={recentNotifs.map((n) => ({ ...n, sentAt: n.sentAt.toISOString() }))} />
         </CardContent>
       </Card>
-
-      <GettingStarted />
     </div>
   );
 }
