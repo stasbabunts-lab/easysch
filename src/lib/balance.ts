@@ -80,7 +80,7 @@ export async function getStudentBalance(s: BillingStudent): Promise<StudentBalan
     }),
     prisma.payment.findMany({
       where: { studentId: s.id, isIgnored: false },
-      select: { amountReceived: true },
+      select: { amountReceived: true, source: true },
     }),
   ]);
 
@@ -88,7 +88,13 @@ export async function getStudentBalance(s: BillingStudent): Promise<StudentBalan
   const groupConducted = groupBillable;
   const groupPrice = s.groupLessonPrice ?? s.lessonPrice;
   const totalOwed = individualConducted * s.lessonPrice + groupConducted * groupPrice;
-  const totalPaid = payments.reduce((sum, p) => sum + p.amountReceived - s.paymentOffset, 0);
+  // Bank payments include the student's offset kopecks (the identifier) — strip it.
+  // Manual payments are entered by the teacher as the real amount and are
+  // authoritative, so they count in full.
+  const totalPaid = payments.reduce(
+    (sum, p) => sum + p.amountReceived - (p.source === "manual" ? 0 : s.paymentOffset),
+    0
+  );
   const computedBalance = totalPaid - totalOwed;
   const effectiveBalance = computedBalance + s.balanceAdjustmentKopecks;
 

@@ -79,7 +79,7 @@ export async function GET() {
     id: p.id,
     studentName: p.student?.name ?? "—",
     amountReceived: p.amountReceived,
-    amountReal: p.student
+    amountReal: p.student && p.source !== "manual"
       ? p.amountReceived - p.student.paymentOffset
       : p.amountReceived,
     confirmedAt: p.confirmedAt,
