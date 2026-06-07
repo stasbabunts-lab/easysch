@@ -82,8 +82,8 @@ export default function SubscribeAmountPage() {
                 min={1}
                 value={amountStr}
                 onChange={(e) => { setAmountStr(e.target.value); setError(""); }}
-                className="w-full text-4xl font-bold bg-transparent outline-none pr-16 py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                placeholder={String(priceUah)}
+                className="w-full text-4xl font-bold bg-transparent outline-none pr-16 py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-xl placeholder:font-normal placeholder:text-muted-foreground/50"
+                placeholder="Введіть суму"
               />
               <span className="absolute right-0 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">грн</span>
             </div>
