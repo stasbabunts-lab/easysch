@@ -131,45 +131,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const currentTime = now.toISOString().slice(11, 16);
-
   if (mode === "future" && slot.recurringGroupId) {
-    // Before deleting, compensate balance for any conducted slots being removed
-    const conductedToDelete = await prisma.availabilitySlot.findMany({
-      where: {
-        recurringGroupId: slot.recurringGroupId,
-        date: { gte: slot.date },
-        isActive: true,
-        studentId: { not: null },
-        OR: [
-          { date: { lt: today } },
-          { date: today, endTime: { lte: currentTime } },
-        ],
-      },
-      include: { student: { select: { id: true, lessonPrice: true, balanceAdjustmentKopecks: true } } },
-    });
-
-    if (conductedToDelete.length > 0) {
-      // Group by student and sum up the compensation needed
-      const byStudent = new Map<string, { lessonPrice: number; balanceAdjustmentKopecks: number; count: number }>();
-      for (const s of conductedToDelete) {
-        if (!s.student) continue;
-        const entry = byStudent.get(s.student.id) ?? { ...s.student, count: 0 };
-        entry.count++;
-        byStudent.set(s.student.id, entry);
-      }
-      await Promise.all(
-        [...byStudent.entries()].map(([studentId, { lessonPrice, balanceAdjustmentKopecks, count }]) =>
-          prisma.student.update({
-            where: { id: studentId },
-            data: { balanceAdjustmentKopecks: balanceAdjustmentKopecks + lessonPrice * count },
-          })
-        )
-      );
-    }
-
+    // Delete this occurrence and every later one in the series.
+    // Balance is derived from the remaining active slots + payments, so removing
+    // conducted lessons simply lowers what the student owes — no manual adjustment.
     await prisma.availabilitySlot.deleteMany({
       where: {
         recurringGroupId: slot.recurringGroupId,
@@ -186,21 +151,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json({ ok: true, mode: "future", groupId: slot.recurringGroupId });
   } else {
-    // Single slot — compensate balance if it was already conducted
-    const isConducted =
-      slot.studentId &&
-      (slot.date < today || (slot.date === today && slot.endTime <= currentTime));
-
-    if (isConducted) {
-      const student = await prisma.student.findUnique({ where: { id: slot.studentId! } });
-      if (student) {
-        await prisma.student.update({
-          where: { id: student.id },
-          data: { balanceAdjustmentKopecks: student.balanceAdjustmentKopecks + student.lessonPrice },
-        });
-      }
-    }
-
+    // Single slot — balance recomputes from the remaining slots automatically.
     await prisma.availabilitySlot.delete({ where: { id } });
     return NextResponse.json({ ok: true, mode: "one", id });
   }
