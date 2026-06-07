@@ -41,7 +41,7 @@ interface SubSettings {
 
 function SubscriptionSettings() {
   const [settings, setSettings] = useState<SubSettings>({
-    subscription_price_kopecks: "8000",
+    subscription_price_kopecks: "15000",
     subscription_period_days: "30",
     subscription_card_number: "",
     subscription_telegram: "https://t.me/babunts",
@@ -61,7 +61,7 @@ function SubscriptionSettings() {
     setSaving(true);
     try {
       const body: Record<string, string> = {
-        subscription_price_kopecks: String(Math.round(parseFloat(settings.subscription_price_kopecks) / 100 * 100) || 8000),
+        subscription_price_kopecks: String(Math.round(parseFloat(settings.subscription_price_kopecks) / 100 * 100) || 15000),
         subscription_period_days: settings.subscription_period_days,
         subscription_card_number: settings.subscription_card_number,
         subscription_telegram: settings.subscription_telegram,
@@ -86,7 +86,7 @@ function SubscriptionSettings() {
     }
   }
 
-  const priceUah = Math.round(parseInt(settings.subscription_price_kopecks) / 100) || 80;
+  const priceUah = Math.round(parseInt(settings.subscription_price_kopecks) / 100) || 150;
 
   return (
     <Card className="border-border/50">

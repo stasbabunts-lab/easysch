@@ -7,13 +7,13 @@ async function getSettings() {
     where: { key: { in: ["subscription_price_kopecks", "subscription_period_days", "subscription_card_number"] } },
   });
   const map: Record<string, string> = {
-    subscription_price_kopecks: "8000",
+    subscription_price_kopecks: "15000",
     subscription_period_days: "30",
     subscription_card_number: "",
   };
   for (const row of rows) map[row.key] = row.value;
   return {
-    priceKopecks: parseInt(map.subscription_price_kopecks) || 8000,
+    priceKopecks: parseInt(map.subscription_price_kopecks) || 15000,
     periodDays: parseInt(map.subscription_period_days) || 30,
     cardNumber: map.subscription_card_number,
   };

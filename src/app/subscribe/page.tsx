@@ -8,7 +8,7 @@ export default async function SubscribeMethodPage() {
     where: { key: { in: ["subscription_price_kopecks", "subscription_period_days"] } },
   });
   const map: Record<string, string> = {
-    subscription_price_kopecks: "8000",
+    subscription_price_kopecks: "15000",
     subscription_period_days: "30",
   };
   for (const s of settings) map[s.key] = s.value;

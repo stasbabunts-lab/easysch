@@ -3,7 +3,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULTS: Record<string, string> = {
-  subscription_price_kopecks: "8000",
+  subscription_price_kopecks: "15000",
   subscription_period_days: "30",
   subscription_card_number: "",
   subscription_monobank_token: "",

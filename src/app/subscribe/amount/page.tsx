@@ -13,7 +13,7 @@ interface SubSettings {
 
 export default function SubscribeAmountPage() {
   const router = useRouter();
-  const [settings, setSettings] = useState<SubSettings>({ priceKopecks: 8000, periodDays: 30, cardNumber: "" });
+  const [settings, setSettings] = useState<SubSettings>({ priceKopecks: 15000, periodDays: 30, cardNumber: "" });
   const [amountStr, setAmountStr] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
