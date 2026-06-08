@@ -28,13 +28,16 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-full w-[220px] flex-col bg-sidebar shrink-0">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 h-[60px] border-b border-sidebar-border">
+      {/* Logo — links to dashboard home */}
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-2.5 px-5 h-[60px] border-b border-sidebar-border hover:bg-white/[0.06] transition-colors"
+      >
         <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
           <TabletIcon size={15} className="text-white" />
         </div>
         <span className="text-[15px] font-semibold text-white tracking-tight">{APP_NAME}</span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
