@@ -491,9 +491,9 @@ export default function SettingsPage() {
           <div className="flex gap-3 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
             <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-xs text-emerald-800 leading-relaxed">
-              <strong>Тільки читання.</strong> API банку використовується виключно для отримання
-              списку вхідних платежів. Жодних операцій з рахунком — переказів, зняття коштів,
-              зміни даних — через це API неможливо.
+              <strong>Тільки читання.</strong> Застосунок використовує API банку виключно для
+              отримання списку вхідних платежів — він не переказує й не знімає кошти та не змінює
+              дані рахунку. Створюючи доступ, обирайте режим «лише виписка / читання».
             </p>
           </div>
 
