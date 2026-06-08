@@ -29,7 +29,7 @@ export function AddStudentDialog() {
 
   function inviteMessage(code: string) {
     return (
-      `Будь ласка, відкрийте телеграм бот @${BOT_USERNAME} та використайте команду:\n` +
+      `Будь ласка, відкрийте Telegram-бот @${BOT_USERNAME} та використайте команду:\n` +
       `/start ${code}\n\n` +
       `Так ви зможете отримувати сповіщення про заняття та реквізити для оплат.`
     );
@@ -130,7 +130,7 @@ export function AddStudentDialog() {
 
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Надішліть це повідомлення клієнту, щоб він підключив Telegram бот:
+                  Надішліть це повідомлення клієнту, щоб він підключив Telegram-бот:
                 </p>
 
                 {/* Message bubble */}

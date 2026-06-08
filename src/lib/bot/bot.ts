@@ -45,7 +45,7 @@ bot.command("start", async (ctx) => {
   const teacher = await prisma.teacher.findUnique({ where: { code: args } });
   if (teacher) {
     if (teacher.telegramChatId && teacher.telegramChatId !== telegramId) {
-      await ctx.reply("❌ Цей код вже прив'язано до іншого Telegram акаунту.");
+      await ctx.reply("❌ Цей код вже прив'язано до іншого Telegram-акаунту.");
       return;
     }
     await prisma.teacher.update({
@@ -101,7 +101,7 @@ bot.command("start", async (ctx) => {
     const tgHandle = handle ? ` (@${handle})` : "";
     await sendTelegramMessage(
       student.teacher.telegramChatId,
-      `🔔 <b>${student.name}</b>${tgHandle} підключив(ла) Telegram бот.`
+      `🔔 <b>${student.name}</b>${tgHandle} підключив(ла) Telegram-бот.`
     ).catch(() => null);
   }
 
@@ -109,7 +109,7 @@ bot.command("start", async (ctx) => {
 
   await ctx.reply(
     `✅ Додано розклад <b>${tName(student.teacher)}</b>!\n\n` +
-      (allLinked > 1 ? `У вас ${allLinked} спеціаліста. Список: /my\n\n` : "") +
+      (allLinked > 1 ? `Усього спеціалістів: ${allLinked}. Список: /my\n\n` : "") +
       `Команди:\n` +
       `/next — найближче заняття\n` +
       `/lessons — заняття на місяць\n` +

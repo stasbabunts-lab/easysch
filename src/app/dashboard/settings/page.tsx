@@ -321,7 +321,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label>Ваше ім&apos;я</Label>
               <p className="text-xs text-muted-foreground">
-                Використовується в повідомленнях Telegram бота клієнтам.
+                Використовується в повідомленнях Telegram-бота клієнтам.
               </p>
               <Input
                 value={settings.name}

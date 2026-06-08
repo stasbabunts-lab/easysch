@@ -518,7 +518,7 @@ export default function PaymentsPage() {
                 <div className="flex gap-3 items-start">
                   <span className="text-xs text-muted-foreground font-mono mt-2.5 w-4 shrink-0">1</span>
                   <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm text-foreground">
-                    Ви завершили заняття на платформі Easy Schedule, будь ласка сплатіть{" "}
+                    Ви завершили заняття на платформі Easy Schedule, будь ласка, сплатіть{" "}
                     <span className="font-semibold text-primary">[сума]</span> на рахунок:
                   </div>
                 </div>
@@ -539,7 +539,7 @@ export default function PaymentsPage() {
                 <div className="flex gap-3 items-start">
                   <span className="text-xs text-muted-foreground font-mono mt-2.5 w-4 shrink-0">3</span>
                   <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm font-bold text-foreground">
-                    Будь ласка сплачуйте точну суму
+                    Будь ласка, сплачуйте точну суму
                   </div>
                 </div>
 

@@ -16,7 +16,7 @@ const STEPS: Step[] = [
   {
     icon: Bot,
     href: "/dashboard/settings",
-    title: "Підключіть Telegram бот",
+    title: "Підключіть Telegram-бот",
     body: (
       <>
         У «Налаштування» знайдіть ваш персональний код і надішліть команду{" "}
