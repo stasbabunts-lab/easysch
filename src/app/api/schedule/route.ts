@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { buildWeeklyInstances } from "@/lib/recurring";
+
+// Recurring series are auto-extended by the cron poller (extendExpiringSeries in
+// pollPayments, every 5 min for every teacher) — not on schedule load, so the
+// horizon never depends on whether the teacher opened this page.
 
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Auto-extend recurring series that are running out of future instances
-  await extendExpiringSeries(session.user.id);
 
   const historyDays = 60;
   const startDate = daysFromNow(-historyDays);
@@ -107,90 +109,8 @@ export async function POST(req: NextRequest) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function daysFromNow(days: number) {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
-}
-
-export function buildWeeklyInstances(
-  startDate: string,
-  startTime: string,
-  endTime: string,
-  durationMin: number,
-  groupId: string,
-  count: number
-) {
-  const instances = [];
-  for (let i = 0; i < count; i++) {
-    const d = new Date(startDate + "T12:00:00");
-    d.setDate(d.getDate() + i * 7);
-    instances.push({
-      date: d.toISOString().slice(0, 10),
-      startTime,
-      endTime,
-      durationMin,
-      isRecurring: true,
-      recurringGroupId: groupId,
-    });
-  }
-  return instances;
-}
-
-export async function extendExpiringSeries(teacherId: string) {
-  const threshold = daysFromNow(21);
-
-  const groups = await prisma.availabilitySlot.groupBy({
-    by: ["recurringGroupId"],
-    where: { teacherId, isRecurring: true, isActive: true, recurringGroupId: { not: null } },
-    _max: { date: true },
-  });
-
-  for (const g of groups) {
-    if (!g.recurringGroupId || !g._max.date) continue;
-    if (g._max.date > threshold) continue;
-
-    const last = await prisma.availabilitySlot.findFirst({
-      where: { recurringGroupId: g.recurringGroupId, date: g._max.date ?? undefined },
-      include: { groupStudents: { select: { studentId: true } } },
-    });
-    if (!last) continue;
-
-    const nextDate = new Date(last.date + "T12:00:00");
-    nextDate.setDate(nextDate.getDate() + 7);
-
-    const instances = buildWeeklyInstances(
-      nextDate.toISOString().slice(0, 10),
-      last.startTime,
-      last.endTime,
-      last.durationMin,
-      last.recurringGroupId!,
-      8
-    );
-    await prisma.availabilitySlot.createMany({
-      data: instances.map((inst) => ({
-        teacherId,
-        ...inst,
-        isGroup: last.isGroup,
-        studentId: last.studentId,
-        isActive: true,
-      })),
-    });
-
-    if (last.isGroup && last.groupStudents.length > 0) {
-      const newSlots = await prisma.availabilitySlot.findMany({
-        where: { recurringGroupId: last.recurringGroupId!, date: { gte: nextDate.toISOString().slice(0, 10) } },
-        select: { id: true },
-      });
-      await prisma.groupSlotStudent.createMany({
-        data: newSlots.flatMap((slot) =>
-          last.groupStudents.map((gs) => ({ slotId: slot.id, studentId: gs.studentId }))
-        ),
-      });
-    }
-  }
 }

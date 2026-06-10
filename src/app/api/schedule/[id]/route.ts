@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
-import { buildWeeklyInstances } from "../route";
+import { buildWeeklyInstances } from "@/lib/recurring";
 // Note: buildWeeklyInstances uses T12:00:00 internally to avoid UTC day-boundary drift
 
 type Params = { params: Promise<{ id: string }> };
