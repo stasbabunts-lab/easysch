@@ -11,7 +11,10 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const res = NextResponse.redirect(new URL("/", req.url));
+  // Relative Location so it resolves against the public URL the visitor used —
+  // behind the Cloudflare tunnel req.url is the internal host (localhost:3000),
+  // which would make an absolute redirect point at the wrong place.
+  const res = new NextResponse(null, { status: 302, headers: { Location: "/" } });
 
   const campaign = await prisma.campaign.findUnique({ where: { slug } });
   if (!campaign) return res; // unknown ref — just send them home
