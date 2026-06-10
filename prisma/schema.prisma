@@ -28,6 +28,7 @@ model Teacher {
   postLessonNote         String?   // optional 4th line in post-lesson payment reminder
   subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
   weekStartsMonday       Boolean   @default(false) // schedule view: align weeks to Monday, dim past days
+  referralSlug           String?   // marketing attribution: Campaign.slug captured at signup
 
   slots                AvailabilitySlot[]
   students             Student[]
@@ -36,6 +37,16 @@ model Teacher {
   bankAccounts         BankAccount[]
   notificationLogs     NotificationLog[]
   subscriptionPayments SubscriptionPayment[]
+}
+
+// Marketing campaign / referral link. Share easy-sch.com/r/<slug>; clicks are
+// counted on the redirect, signups are Teachers whose referralSlug == slug.
+model Campaign {
+  id        String   @id @default(cuid())
+  slug      String   @unique // URL part, e.g. "teachersuperhub"
+  label     String   // human note: where it was placed, e.g. "Teacher Supervision Hub — €50 post"
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
 model BankAccount {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ShieldCheck, Users, LogOut, Plus, Minus, Calendar,
-  MessageCircle, BookOpen, Settings,
+  MessageCircle, BookOpen, Settings, Megaphone, Copy, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -169,6 +169,157 @@ function SubscriptionSettings() {
   );
 }
 
+interface Campaign {
+  id: string;
+  slug: string;
+  label: string;
+  clicks: number;
+  signups: number;
+  createdAt: string;
+}
+
+function CampaignsSection() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [label, setLabel] = useState("");
+  const [slug, setSlug] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    fetch("/api/admin/campaigns")
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) && setCampaigns(data))
+      .catch(() => {});
+  }, []);
+
+  async function create() {
+    const s = slug.trim().toLowerCase();
+    const l = label.trim();
+    if (!s || !l) {
+      toast.error("Заповніть назву і мітку");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch("/api/admin/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: s, label: l }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || "");
+      }
+      const created = await res.json();
+      setCampaigns((prev) => [created, ...prev]);
+      setLabel("");
+      setSlug("");
+      toast.success("Кампанію створено");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "Помилка");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Видалити кампанію? Статистика по ній зникне.")) return;
+    await fetch(`/api/admin/campaigns/${id}`, { method: "DELETE" }).catch(() => {});
+    setCampaigns((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  function copyLink(s: string) {
+    navigator.clipboard
+      .writeText(`${origin}/r/${s}`)
+      .then(() => toast.success("Посилання скопійовано"))
+      .catch(() => {});
+  }
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Megaphone className="h-4 w-4" /> Рекламні кампанії
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Create form */}
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Назва (для себе — де розмістили)</label>
+            <Input
+              placeholder="Teacher Supervision Hub — €50 пост"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Мітка в посиланні</label>
+            <Input
+              placeholder="teachersuperhub"
+              className="sm:w-44"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              onKeyDown={(e) => e.key === "Enter" && create()}
+            />
+          </div>
+          <Button onClick={create} disabled={creating} size="sm" className="sm:mb-0.5">
+            <Plus className="h-4 w-4 mr-1" /> Створити
+          </Button>
+        </div>
+
+        {/* List */}
+        {campaigns.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Кампаній ще немає.</p>
+        ) : (
+          <div className="space-y-2">
+            {campaigns.map((c) => {
+              const link = `${origin}/r/${c.slug}`;
+              const conv = c.clicks > 0 ? Math.round((c.signups / c.clicks) * 100) : 0;
+              return (
+                <div key={c.id} className="rounded-lg border border-border/40 p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{c.label}</p>
+                      <button
+                        onClick={() => copyLink(c.slug)}
+                        className="mt-0.5 flex items-center gap-1.5 text-xs text-primary hover:underline max-w-full"
+                        title="Скопіювати посилання"
+                      >
+                        <Copy className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{link}</span>
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => remove(c.id)}
+                      className="text-muted-foreground hover:text-destructive shrink-0"
+                      title="Видалити"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-muted-foreground">
+                      Кліків: <span className="font-semibold text-foreground">{c.clicks}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Реєстрацій: <span className="font-semibold text-emerald-600">{c.signups}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Конверсія: <span className="font-semibold text-foreground">{conv}%</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AdminDashboard({ teachers: initial }: { teachers: Teacher[] }) {
   const router = useRouter();
   const [teachers, setTeachers] = useState(initial);
@@ -266,6 +417,8 @@ export function AdminDashboard({ teachers: initial }: { teachers: Teacher[] }) {
             </CardContent>
           </Card>
         </div>
+
+        <CampaignsSection />
 
         <SubscriptionSettings />
 

@@ -66,6 +66,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const code = await generateUniqueTeacherCode();
           const trialEnd = new Date();
           trialEnd.setDate(trialEnd.getDate() + 14);
+
+          // Best-effort marketing attribution: the /r/<slug> redirect set this
+          // cookie. Only attribute to a real campaign; never break signup over it.
+          let referralSlug: string | null = null;
+          try {
+            const { cookies } = await import("next/headers");
+            const ref = (await cookies()).get("esch_ref")?.value;
+            if (ref && (await prisma.campaign.findUnique({ where: { slug: ref } }))) {
+              referralSlug = ref;
+            }
+          } catch {
+            // attribution is optional
+          }
+
           teacher = await prisma.teacher.create({
             data: {
               email,
@@ -73,6 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               passwordHash: `GOOGLE:${uid}`, // marker — no password login possible
               code,
               subscriptionExpiresAt: trialEnd,
+              referralSlug,
             },
           });
         }
