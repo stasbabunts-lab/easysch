@@ -3,10 +3,11 @@
 # Telegram stores this server-side until changed — re-run this whenever the
 # command list changes. Reads TELEGRAM_BOT_TOKEN from the env files (Next.js
 # precedence: .env.local overrides .env).
-set -euo pipefail
+set -eu
 cd "$(dirname "$0")/.."
 
-TOKEN=$(cat .env.local .env .env.production 2>/dev/null | sed -n 's/^TELEGRAM_BOT_TOKEN=//p' | head -1 | tr -d '"' | tr -d "'" | xargs)
+TOKEN=$(for f in .env.local .env .env.production; do [ -f "$f" ] && cat "$f"; done \
+  | sed -n 's/^TELEGRAM_BOT_TOKEN=//p' | head -1 | tr -d '"' | tr -d "'" | xargs)
 if [ -z "${TOKEN:-}" ]; then
   echo "TELEGRAM_BOT_TOKEN not found in .env.local" >&2
   exit 1
