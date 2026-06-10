@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"' | tr -d "'" | xargs)
+TOKEN=$(sed -n 's/^TELEGRAM_BOT_TOKEN=//p' .env.local | head -1 | tr -d '"' | tr -d "'" | xargs)
 if [ -z "${TOKEN:-}" ]; then
   echo "TELEGRAM_BOT_TOKEN not found in .env.local" >&2
   exit 1
