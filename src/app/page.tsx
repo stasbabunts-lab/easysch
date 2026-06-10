@@ -284,7 +284,11 @@ export default async function Home() {
             <span className="font-medium">{APP_NAME}</span>
           </div>
           <p>© 2025 {APP_NAME}. Для тих, хто працює на себе.</p>
-          <Link href="/login" className="hover:text-foreground transition-colors">Увійти</Link>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Конфіденційність</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Умови</Link>
+            <Link href="/login" className="hover:text-foreground transition-colors">Увійти</Link>
+          </div>
         </div>
       </footer>
 
