@@ -5,6 +5,8 @@ import { sendTelegramMessage } from "@/lib/bot/reminders";
 import { getStudentBalance } from "@/lib/balance";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+// Where teacher support messages are delivered (admin's Telegram chat id).
+const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID;
 
 // Lazy singleton — bot is only created when token is present
 let _bot: Bot | null = null;
@@ -21,6 +23,11 @@ export { getBot as bot };
 /** Returns displayName if set, otherwise name */
 function tName(teacher: { name: string; displayName?: string | null }) {
   return teacher.displayName?.trim() || teacher.name;
+}
+
+/** Escape user-provided text before embedding it in an HTML-parsed message. */
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function registerHandlers(bot: Bot) {
@@ -59,7 +66,8 @@ bot.command("start", async (ctx) => {
         `/today — заняття сьогодні\n` +
         `/week — заняття на 7 днів\n` +
         `/debts — клієнти з боргом\n` +
-        `/mystudents — список клієнтів\n\n` +
+        `/mystudents — список клієнтів\n` +
+        `/support — зв'язатися з підтримкою\n\n` +
         `💡 Ви також можете бути учнем інших спеціалістів — просто надішліть /start з кодом учня, який вам дасть ваш спеціаліст.`,
       { parse_mode: "HTML" }
     );
@@ -507,6 +515,80 @@ bot.command("unlink", async (ctx) => {
     `✅ Розклад <b>${tName(student.teacher)}</b> відв'язано. Повідомлення більше не будуть надходити.`,
     { parse_mode: "HTML" }
   );
+});
+
+// ── Teacher: /support ──────────────────────────────────────────────────────────
+bot.command("support", async (ctx) => {
+  const fromId = String(ctx.from!.id);
+  const teacher = await prisma.teacher.findFirst({
+    where: { telegramChatId: fromId },
+    select: { id: true },
+  });
+  if (!teacher) {
+    await ctx.reply(
+      "ℹ️ Підтримка доступна для спеціалістів. З питань щодо занять та оплат звертайтесь до вашого спеціаліста."
+    ).catch(() => null);
+    return;
+  }
+  await ctx.reply(
+    "✍️ Напишіть ваше питання одним повідомленням — і ми відповімо вам тут, у боті."
+  ).catch(() => null);
+});
+
+// ── Support relay (teachers only) ───────────────────────────────────────────────
+// Free-text messages from linked teachers are forwarded to the support chat. The
+// operator replies (as a Telegram reply to the forwarded message), and the answer
+// is routed back to the teacher via the #u<chatId> tag anchored at the message end
+// (so user text containing "#u..." cannot spoof the target). Students/unlinked
+// users are pointed to their specialist instead.
+bot.on("message:text", async (ctx) => {
+  const fromId = String(ctx.from!.id);
+  const text = ctx.message.text;
+
+  // 1) Operator replying from the support chat → relay the answer to the teacher.
+  if (SUPPORT_CHAT_ID && fromId === SUPPORT_CHAT_ID) {
+    const quoted = ctx.message.reply_to_message?.text ?? "";
+    const m = quoted.match(/#u(\d+)\s*$/);
+    if (m) {
+      await sendTelegramMessage(m[1], `💬 <b>Підтримка:</b>\n${escapeHtml(text)}`).catch(() => null);
+      await ctx.reply("✅ Відповідь надіслано.").catch(() => null);
+    }
+    return; // the operator's own messages never become tickets
+  }
+
+  // Unknown command (e.g. /foo) — not a support message.
+  if (text.startsWith("/")) return;
+
+  // 2) Incoming user message → support is for teachers only.
+  const teacher = await prisma.teacher.findFirst({
+    where: { telegramChatId: fromId },
+    select: { name: true, displayName: true },
+  });
+
+  if (!teacher) {
+    await ctx.reply(
+      "ℹ️ З питань щодо занять та оплат звертайтесь, будь ласка, до вашого спеціаліста.\n\n" +
+        "Якщо ви ще не прив'язані — введіть /start ВАШ_КОД."
+    ).catch(() => null);
+    return;
+  }
+
+  if (!SUPPORT_CHAT_ID) {
+    await ctx.reply("Підтримка тимчасово недоступна, спробуйте трохи згодом.").catch(() => null);
+    return;
+  }
+
+  const handle = ctx.from!.username ? `@${ctx.from!.username}` : "—";
+  await sendTelegramMessage(
+    SUPPORT_CHAT_ID,
+    `📩 <b>Підтримка</b> · спеціаліст <b>${escapeHtml(tName(teacher))}</b> · ${escapeHtml(handle)}\n\n` +
+      `${escapeHtml(text)}\n\n` +
+      `<i>Відповідьте реплаєм на це повідомлення.</i>\n#u${fromId}`
+  ).catch(() => null);
+
+  await ctx.reply(
+    "✅ Ваше повідомлення надіслано в підтримку. Відповімо вам тут якнайшвидше."
+  ).catch(() => null);
 });
 
 } // end registerHandlers
