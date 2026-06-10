@@ -136,7 +136,7 @@ function PayContent() {
         <h1 className="text-2xl font-bold">Час вийшов</h1>
         <p className="text-muted-foreground text-sm">
           Платіж не надійшов протягом 10 хвилин.
-          {data?.telegramLink && " Якщо ви вже оплатили — напишіть нам."}
+          {data?.telegramLink && " Якщо ви вже оплатили — зверніться до підтримки."}
         </p>
         <div className="flex flex-col gap-2 pt-2">
           <Link
@@ -146,14 +146,20 @@ function PayContent() {
             <RefreshCw className="h-4 w-4" /> Спробувати знову
           </Link>
           {data?.telegramLink && (
-            <a
-              href={data.telegramLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 border border-border rounded-xl py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
-            >
-              <MessageCircle className="h-4 w-4" /> Написати нам
-            </a>
+            <div className="space-y-1.5">
+              <a
+                href={data.telegramLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 border border-border rounded-xl py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" /> Звернутися до підтримки
+              </a>
+              <p className="text-center text-xs text-muted-foreground">
+                У боті надішліть команду{" "}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono">/support</code>
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -256,15 +262,21 @@ function PayContent() {
 
       {/* Help */}
       {data?.telegramLink && (
-        <a
-          href={data.telegramLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 border border-border rounded-xl py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors"
-        >
-          <MessageCircle className="h-4 w-4" />
-          Написати мені якщо щось пішло не так
-        </a>
+        <div className="space-y-1.5">
+          <a
+            href={data.telegramLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 border border-border rounded-xl py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Звернутися до підтримки
+          </a>
+          <p className="text-center text-xs text-muted-foreground">
+            У боті надішліть команду{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">/support</code>
+          </p>
+        </div>
       )}
     </div>
   );
