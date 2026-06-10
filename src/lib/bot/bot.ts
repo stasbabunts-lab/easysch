@@ -65,6 +65,30 @@ async function relaySupportMessage(ctx: Context, text: string): Promise<boolean>
 
 function registerHandlers(bot: Bot) {
 
+// ── /help — full command list (also populates the bot's "/" menu) ───────────────
+const HELP_TEXT =
+  "📋 <b>Усі команди</b>\n\n" +
+  "🔗 <b>Загальні</b>\n" +
+  "/start КОД — підключити бот\n" +
+  "/help — цей список\n\n" +
+  "👤 <b>Для спеціалістів</b>\n" +
+  "/today — заняття сьогодні\n" +
+  "/week — заняття на 7 днів\n" +
+  "/debts — клієнти з боргом\n" +
+  "/mystudents — список клієнтів\n" +
+  "/support — зв'язатися з підтримкою\n\n" +
+  "🎓 <b>Для клієнтів</b>\n" +
+  "/next — найближче заняття\n" +
+  "/lessons — заняття на місяць\n" +
+  "/balance — ваш баланс\n" +
+  "/pay — реквізити для оплати\n" +
+  "/my — ваші спеціалісти\n" +
+  "/unlink КОД — відписатися від спеціаліста";
+
+bot.command("help", async (ctx) => {
+  await ctx.reply(HELP_TEXT, { parse_mode: "HTML" }).catch(() => null);
+});
+
 bot.command("start", async (ctx) => {
   const args = ctx.match?.trim().toUpperCase();
   const telegramId = String(ctx.from!.id);

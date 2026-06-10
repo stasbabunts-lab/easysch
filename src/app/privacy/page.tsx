@@ -24,8 +24,8 @@ export default function PrivacyPage() {
       <h2>1. Хто обробляє дані</h2>
       <p>
         Сервіс надає команда {APP_NAME}. Зв&apos;язатися з нами можна у Telegram:{" "}
-        <a href="https://t.me/babunts" className="text-primary hover:underline">
-          @babunts
+        <a href="https://t.me/EasySchBot" className="text-primary hover:underline">
+          https://t.me/EasySchBot
         </a>
         .
       </p>
@@ -110,8 +110,8 @@ export default function PrivacyPage() {
         Ви маєте право на доступ, виправлення, видалення своїх даних та відкликання
         згоди на обробку. Для реалізації цих прав, а також щоб видалити акаунт,
         зверніться до нас у Telegram:{" "}
-        <a href="https://t.me/babunts" className="text-primary hover:underline">
-          @babunts
+        <a href="https://t.me/EasySchBot" className="text-primary hover:underline">
+          https://t.me/EasySchBot
         </a>
         .
       </p>
@@ -130,8 +130,8 @@ export default function PrivacyPage() {
       <h2>10. Контакти</h2>
       <p>
         З будь-яких питань щодо конфіденційності пишіть у Telegram:{" "}
-        <a href="https://t.me/babunts" className="text-primary hover:underline">
-          @babunts
+        <a href="https://t.me/EasySchBot" className="text-primary hover:underline">
+          https://t.me/EasySchBot
         </a>
         .
       </p>

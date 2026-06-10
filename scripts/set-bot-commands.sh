@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Registers the bot's command menu (the "/" / Menu list shown in Telegram).
+# Telegram stores this server-side until changed — re-run this whenever the
+# command list changes. Reads TELEGRAM_BOT_TOKEN from .env.local.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.local | head -1 | cut -d= -f2- | tr -d '"'"'"' | tr -d "'" | xargs)
+if [ -z "${TOKEN:-}" ]; then
+  echo "TELEGRAM_BOT_TOKEN not found in .env.local" >&2
+  exit 1
+fi
+
+curl -s -X POST "https://api.telegram.org/bot${TOKEN}/setMyCommands" \
+  -H "Content-Type: application/json" \
+  --data-binary @- <<'JSON'
+{
+  "commands": [
+    {"command": "start",      "description": "Підключити бот за кодом"},
+    {"command": "help",       "description": "Усі команди"},
+    {"command": "today",      "description": "Сьогоднішні заняття (спеціаліст)"},
+    {"command": "week",       "description": "Заняття на 7 днів (спеціаліст)"},
+    {"command": "debts",      "description": "Клієнти з боргом (спеціаліст)"},
+    {"command": "mystudents", "description": "Список клієнтів (спеціаліст)"},
+    {"command": "support",    "description": "Підтримка (спеціаліст)"},
+    {"command": "next",       "description": "Найближче заняття (клієнт)"},
+    {"command": "lessons",    "description": "Заняття на місяць (клієнт)"},
+    {"command": "balance",    "description": "Ваш баланс (клієнт)"},
+    {"command": "pay",        "description": "Реквізити для оплати (клієнт)"},
+    {"command": "my",         "description": "Ваші спеціалісти (клієнт)"},
+    {"command": "unlink",     "description": "Відписатися від спеціаліста (клієнт)"}
+  ]
+}
+JSON
+echo

@@ -44,7 +44,7 @@ function SubscriptionSettings() {
     subscription_price_kopecks: "15000",
     subscription_period_days: "30",
     subscription_card_number: "",
-    subscription_telegram: "https://t.me/babunts",
+    subscription_telegram: "https://t.me/EasySchBot",
     subscription_monobank_token_set: false,
   });
   const [token, setToken] = useState("");

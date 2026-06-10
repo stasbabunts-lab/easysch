@@ -43,8 +43,8 @@ export default function TermsPage() {
         <li>
           Оплата підписки здійснюється через платіжний сервіс Monobank. Продовження
           також можливе через звернення у Telegram:{" "}
-          <a href="https://t.me/babunts" className="text-primary hover:underline">
-            @babunts
+          <a href="https://t.me/EasySchBot" className="text-primary hover:underline">
+            https://t.me/EasySchBot
           </a>
           .
         </li>
@@ -118,8 +118,8 @@ export default function TermsPage() {
       <h2>11. Контакти</h2>
       <p>
         Питання щодо Умов надсилайте у Telegram:{" "}
-        <a href="https://t.me/babunts" className="text-primary hover:underline">
-          @babunts
+        <a href="https://t.me/EasySchBot" className="text-primary hover:underline">
+          https://t.me/EasySchBot
         </a>
         . Питання конфіденційності описані в{" "}
         <a href="/privacy" className="text-primary hover:underline">

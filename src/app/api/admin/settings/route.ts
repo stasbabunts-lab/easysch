@@ -7,7 +7,7 @@ const DEFAULTS: Record<string, string> = {
   subscription_period_days: "30",
   subscription_card_number: "",
   subscription_monobank_token: "",
-  subscription_telegram: "https://t.me/babunts",
+  subscription_telegram: "https://t.me/EasySchBot",
 };
 
 export async function GET() {

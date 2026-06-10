@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
     status: "PENDING",
     amountTotal: payment.amountTotal,
     cardNumber: cardRow?.value ?? "",
-    telegramLink: telegramRow?.value ?? "https://t.me/babunts",
+    telegramLink: telegramRow?.value ?? "https://t.me/EasySchBot",
     expiresAt: payment.expiresAt,
   });
 }
