@@ -30,29 +30,38 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-const SUPPORT_FOR_TEACHERS_ONLY =
-  "ℹ️ З питань щодо занять та оплат звертайтесь, будь ласка, до вашого спеціаліста.\n\n" +
-  "Якщо ви ще не прив'язані — введіть /start ВАШ_КОД.";
-
-// Forward a teacher's support text to the support chat. Returns false if the
-// sender isn't a linked teacher (the caller decides what to tell them).
-async function relaySupportMessage(ctx: Context, text: string): Promise<boolean> {
+// Forward any user's message to the support chat, labelled by role (teacher /
+// student / unknown). The operator replies to the forwarded message and the
+// answer is routed back to the sender via the trailing #u<chatId> tag.
+async function relaySupportMessage(ctx: Context, text: string): Promise<void> {
+  if (!SUPPORT_CHAT_ID) {
+    await ctx.reply("Підтримка тимчасово недоступна, спробуйте трохи згодом.").catch(() => null);
+    return;
+  }
   const fromId = String(ctx.from!.id);
+
   const teacher = await prisma.teacher.findFirst({
     where: { telegramChatId: fromId },
     select: { name: true, displayName: true },
   });
-  if (!teacher) return false;
-
-  if (!SUPPORT_CHAT_ID) {
-    await ctx.reply("Підтримка тимчасово недоступна, спробуйте трохи згодом.").catch(() => null);
-    return true;
+  let who: string;
+  if (teacher) {
+    who = `спеціаліст <b>${escapeHtml(tName(teacher))}</b>`;
+  } else {
+    const isStudent = await prisma.student.findFirst({
+      where: { telegramId: fromId },
+      select: { id: true },
+    });
+    who = isStudent ? "клієнт" : "користувач";
   }
 
-  const handle = ctx.from!.username ? `@${ctx.from!.username}` : "—";
+  const from = ctx.from!;
+  const fullName = [from.first_name, from.last_name].filter(Boolean).join(" ");
+  const handle = from.username ? `@${from.username}` : fullName || "—";
+
   await sendTelegramMessage(
     SUPPORT_CHAT_ID,
-    `📩 <b>Підтримка</b> · спеціаліст <b>${escapeHtml(tName(teacher))}</b> · ${escapeHtml(handle)}\n\n` +
+    `📩 <b>Підтримка</b> · ${who} · ${escapeHtml(handle)}\n\n` +
       `${escapeHtml(text)}\n\n` +
       `<i>Відповідьте реплаєм на це повідомлення.</i>\n#u${fromId}`
   ).catch(() => null);
@@ -60,7 +69,6 @@ async function relaySupportMessage(ctx: Context, text: string): Promise<boolean>
   await ctx.reply(
     "✅ Ваше повідомлення надіслано в підтримку. Відповімо вам тут якнайшвидше."
   ).catch(() => null);
-  return true;
 }
 
 function registerHandlers(bot: Bot) {
@@ -574,23 +582,13 @@ bot.command("unlink", async (ctx) => {
   );
 });
 
-// ── Teacher: /support ──────────────────────────────────────────────────────────
+// ── /support ────────────────────────────────────────────────────────────────────
 // "/support <текст>" relays the inline text immediately; bare "/support" prompts
 // for a separate message (which the catch-all below then relays).
 bot.command("support", async (ctx) => {
   const arg = ctx.match?.trim();
   if (arg) {
-    const relayed = await relaySupportMessage(ctx, arg);
-    if (!relayed) await ctx.reply(SUPPORT_FOR_TEACHERS_ONLY).catch(() => null);
-    return;
-  }
-  const fromId = String(ctx.from!.id);
-  const teacher = await prisma.teacher.findFirst({
-    where: { telegramChatId: fromId },
-    select: { id: true },
-  });
-  if (!teacher) {
-    await ctx.reply(SUPPORT_FOR_TEACHERS_ONLY).catch(() => null);
+    await relaySupportMessage(ctx, arg);
     return;
   }
   await ctx.reply(
@@ -598,17 +596,16 @@ bot.command("support", async (ctx) => {
   ).catch(() => null);
 });
 
-// ── Support relay (teachers only) ───────────────────────────────────────────────
-// Free-text messages from linked teachers are forwarded to the support chat. The
-// operator replies (as a Telegram reply to the forwarded message), and the answer
-// is routed back to the teacher via the #u<chatId> tag anchored at the message end
-// (so user text containing "#u..." cannot spoof the target). Students/unlinked
-// users are pointed to their specialist instead.
+// ── Support relay ─────────────────────────────────────────────────────────────────
+// Any free-text message (from teacher, student or unknown user) is forwarded to the
+// support chat. The operator replies as a Telegram reply to the forwarded message,
+// and the answer is routed back via the #u<chatId> tag anchored at the message end
+// (so user text containing "#u..." cannot spoof the target).
 bot.on("message:text", async (ctx) => {
   const fromId = String(ctx.from!.id);
   const text = ctx.message.text;
 
-  // 1) Operator replying from the support chat → relay the answer to the teacher.
+  // 1) Operator replying from the support chat → relay the answer back to the user.
   if (SUPPORT_CHAT_ID && fromId === SUPPORT_CHAT_ID) {
     const quoted = ctx.message.reply_to_message?.text ?? "";
     const m = quoted.match(/#u(\d+)\s*$/);
@@ -622,9 +619,8 @@ bot.on("message:text", async (ctx) => {
   // Unknown command (e.g. /foo) — not a support message.
   if (text.startsWith("/")) return;
 
-  // 2) Free-text from a user → relay if teacher, otherwise point to specialist.
-  const relayed = await relaySupportMessage(ctx, text);
-  if (!relayed) await ctx.reply(SUPPORT_FOR_TEACHERS_ONLY).catch(() => null);
+  // 2) Any other free-text message → forward to support.
+  await relaySupportMessage(ctx, text);
 });
 
 } // end registerHandlers
