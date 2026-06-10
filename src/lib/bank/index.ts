@@ -73,7 +73,7 @@ type BankOption = {
   fields: FieldDef[];
 };
 
-export const BANK_OPTIONS: BankOption[] = [
+const ALL_BANK_OPTIONS: BankOption[] = [
   {
     value: "monobank",
     label: "Monobank",
@@ -287,3 +287,24 @@ export const BANK_OPTIONS: BankOption[] = [
     ],
   },
 ];
+
+// ── Enabled integrations ────────────────────────────────────────────────────────
+// Only read-only integrations are exposed for now. Money-capable APIs (PayPal,
+// PUMB, PrivatBank ACP and corporate Open Banking secrets) stay in code but are
+// disabled until our security posture is hardened: a leaked Monobank *personal*
+// token can only read a statement, whereas a leaked credential for the others
+// could potentially move funds. To re-enable one later, add its value here.
+export const ENABLED_BANK_TYPES: string[] = ["monobank"];
+
+export function isBankTypeEnabled(bankType: string): boolean {
+  return ENABLED_BANK_TYPES.includes(bankType);
+}
+
+// Full catalogue — used to resolve a human label for any (incl. legacy/disabled)
+// account type that may still exist on a record.
+export { ALL_BANK_OPTIONS };
+
+// Options offered in the "add bank account" selector — enabled types only.
+export const BANK_OPTIONS: BankOption[] = ALL_BANK_OPTIONS.filter((o) =>
+  isBankTypeEnabled(o.value)
+);

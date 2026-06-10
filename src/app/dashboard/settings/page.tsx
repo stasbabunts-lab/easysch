@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/labels";
-import { BANK_OPTIONS } from "@/lib/bank";
+import { BANK_OPTIONS, ALL_BANK_OPTIONS } from "@/lib/bank";
 
 interface TeacherSettings {
   teacherReminderMinutes: string;
@@ -257,7 +257,7 @@ export default function SettingsPage() {
   }
 
   const bankLabel = (type: string) =>
-    BANK_OPTIONS.find((b) => b.value === type)?.label ?? type;
+    ALL_BANK_OPTIONS.find((b) => b.value === type)?.label ?? type;
 
   return (
     <div className="space-y-5 max-w-2xl">

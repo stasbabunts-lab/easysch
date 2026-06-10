@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
+import { isBankTypeEnabled } from "@/lib/bank";
 
 // GET: list bank accounts (creds never returned)
 export async function GET() {
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
   const { bankType, label, creds } = await req.json();
   if (!bankType || !label || !creds || typeof creds !== "object") {
     return NextResponse.json({ error: "bankType, label та creds обов'язкові" }, { status: 400 });
+  }
+  // Defense in depth: the UI only offers enabled (read-only) banks, but reject
+  // disabled/money-capable types here too in case of a direct API call.
+  if (!isBankTypeEnabled(bankType)) {
+    return NextResponse.json({ error: "Цей банк наразі недоступний" }, { status: 400 });
   }
 
   const account = await prisma.bankAccount.create({
