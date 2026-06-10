@@ -23,11 +23,7 @@ export default function PrivacyPage() {
 
       <h2>1. Хто обробляє дані</h2>
       <p>
-        Оператором Сервісу є{" "}
-        <span className="rounded bg-muted px-1.5 py-0.5 font-medium">
-          [вкажіть ФОП / юридичну особу та реєстраційні дані]
-        </span>
-        . Зв&apos;язатися з нами можна у Telegram:{" "}
+        Сервіс надає команда {APP_NAME}. Зв&apos;язатися з нами можна у Telegram:{" "}
         <a href="https://t.me/babunts" className="text-primary hover:underline">
           @babunts
         </a>
