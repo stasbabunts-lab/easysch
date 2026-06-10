@@ -13,11 +13,16 @@ async function pollAdminBank(paymentId: string, offset: number, createdAt: Date)
   if (now - last < POLL_INTERVAL_MS) return false;
   lastPollTime.set(paymentId, now);
 
-  const tokenRow = await prisma.appSettings.findUnique({ where: { key: "subscription_monobank_token" } });
+  const [tokenRow, cardRow] = await Promise.all([
+    prisma.appSettings.findUnique({ where: { key: "subscription_monobank_token" } }),
+    prisma.appSettings.findUnique({ where: { key: "subscription_card_number" } }),
+  ]);
   if (!tokenRow?.value) return false;
 
   try {
-    const adapter = new MonobankAdapter(tokenRow.value);
+    // Pass the configured card so only payments to THAT card count as site
+    // subscription payments (the same token may cover other cards used elsewhere).
+    const adapter = new MonobankAdapter(tokenRow.value, cardRow?.value || undefined);
     const txs = await adapter.getIncomingTransactions(createdAt);
 
     for (const tx of txs) {
