@@ -1,4 +1,4 @@
-import { Bot } from "grammy";
+import { Bot, Context } from "grammy";
 import { prisma } from "@/lib/prisma";
 import { formatAmount } from "@/lib/format";
 import { sendTelegramMessage } from "@/lib/bot/reminders";
@@ -28,6 +28,39 @@ function tName(teacher: { name: string; displayName?: string | null }) {
 /** Escape user-provided text before embedding it in an HTML-parsed message. */
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const SUPPORT_FOR_TEACHERS_ONLY =
+  "ℹ️ З питань щодо занять та оплат звертайтесь, будь ласка, до вашого спеціаліста.\n\n" +
+  "Якщо ви ще не прив'язані — введіть /start ВАШ_КОД.";
+
+// Forward a teacher's support text to the support chat. Returns false if the
+// sender isn't a linked teacher (the caller decides what to tell them).
+async function relaySupportMessage(ctx: Context, text: string): Promise<boolean> {
+  const fromId = String(ctx.from!.id);
+  const teacher = await prisma.teacher.findFirst({
+    where: { telegramChatId: fromId },
+    select: { name: true, displayName: true },
+  });
+  if (!teacher) return false;
+
+  if (!SUPPORT_CHAT_ID) {
+    await ctx.reply("Підтримка тимчасово недоступна, спробуйте трохи згодом.").catch(() => null);
+    return true;
+  }
+
+  const handle = ctx.from!.username ? `@${ctx.from!.username}` : "—";
+  await sendTelegramMessage(
+    SUPPORT_CHAT_ID,
+    `📩 <b>Підтримка</b> · спеціаліст <b>${escapeHtml(tName(teacher))}</b> · ${escapeHtml(handle)}\n\n` +
+      `${escapeHtml(text)}\n\n` +
+      `<i>Відповідьте реплаєм на це повідомлення.</i>\n#u${fromId}`
+  ).catch(() => null);
+
+  await ctx.reply(
+    "✅ Ваше повідомлення надіслано в підтримку. Відповімо вам тут якнайшвидше."
+  ).catch(() => null);
+  return true;
 }
 
 function registerHandlers(bot: Bot) {
@@ -518,16 +551,22 @@ bot.command("unlink", async (ctx) => {
 });
 
 // ── Teacher: /support ──────────────────────────────────────────────────────────
+// "/support <текст>" relays the inline text immediately; bare "/support" prompts
+// for a separate message (which the catch-all below then relays).
 bot.command("support", async (ctx) => {
+  const arg = ctx.match?.trim();
+  if (arg) {
+    const relayed = await relaySupportMessage(ctx, arg);
+    if (!relayed) await ctx.reply(SUPPORT_FOR_TEACHERS_ONLY).catch(() => null);
+    return;
+  }
   const fromId = String(ctx.from!.id);
   const teacher = await prisma.teacher.findFirst({
     where: { telegramChatId: fromId },
     select: { id: true },
   });
   if (!teacher) {
-    await ctx.reply(
-      "ℹ️ Підтримка доступна для спеціалістів. З питань щодо занять та оплат звертайтесь до вашого спеціаліста."
-    ).catch(() => null);
+    await ctx.reply(SUPPORT_FOR_TEACHERS_ONLY).catch(() => null);
     return;
   }
   await ctx.reply(
@@ -559,36 +598,9 @@ bot.on("message:text", async (ctx) => {
   // Unknown command (e.g. /foo) — not a support message.
   if (text.startsWith("/")) return;
 
-  // 2) Incoming user message → support is for teachers only.
-  const teacher = await prisma.teacher.findFirst({
-    where: { telegramChatId: fromId },
-    select: { name: true, displayName: true },
-  });
-
-  if (!teacher) {
-    await ctx.reply(
-      "ℹ️ З питань щодо занять та оплат звертайтесь, будь ласка, до вашого спеціаліста.\n\n" +
-        "Якщо ви ще не прив'язані — введіть /start ВАШ_КОД."
-    ).catch(() => null);
-    return;
-  }
-
-  if (!SUPPORT_CHAT_ID) {
-    await ctx.reply("Підтримка тимчасово недоступна, спробуйте трохи згодом.").catch(() => null);
-    return;
-  }
-
-  const handle = ctx.from!.username ? `@${ctx.from!.username}` : "—";
-  await sendTelegramMessage(
-    SUPPORT_CHAT_ID,
-    `📩 <b>Підтримка</b> · спеціаліст <b>${escapeHtml(tName(teacher))}</b> · ${escapeHtml(handle)}\n\n` +
-      `${escapeHtml(text)}\n\n` +
-      `<i>Відповідьте реплаєм на це повідомлення.</i>\n#u${fromId}`
-  ).catch(() => null);
-
-  await ctx.reply(
-    "✅ Ваше повідомлення надіслано в підтримку. Відповімо вам тут якнайшвидше."
-  ).catch(() => null);
+  // 2) Free-text from a user → relay if teacher, otherwise point to specialist.
+  const relayed = await relaySupportMessage(ctx, text);
+  if (!relayed) await ctx.reply(SUPPORT_FOR_TEACHERS_ONLY).catch(() => null);
 });
 
 } // end registerHandlers
