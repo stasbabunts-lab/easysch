@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { SubscriptionBanner } from "@/components/layout/SubscriptionBanner";
+import { FirstVisitGuide } from "@/components/layout/FirstVisitGuide";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -26,6 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <FirstVisitGuide />
       <div className="hidden md:flex">
         <Sidebar />
       </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Bot, Landmark, CreditCard, CalendarPlus } from "lucide-react";
+import { SupportForm } from "./SupportForm";
 
 export const metadata = {
   title: "Як розпочати роботу",
@@ -111,6 +112,8 @@ export default function GuidePage() {
           </li>
         ))}
       </ol>
+
+      <SupportForm />
     </div>
   );
 }
