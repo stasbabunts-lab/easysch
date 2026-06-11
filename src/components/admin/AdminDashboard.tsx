@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ShieldCheck, Users, LogOut, Plus, Minus, Calendar,
-  MessageCircle, BookOpen, Settings, Megaphone, Copy, Trash2,
+  MessageCircle, BookOpen, Settings, Megaphone, Copy, Trash2, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -325,6 +325,34 @@ export function AdminDashboard({ teachers: initial }: { teachers: Teacher[] }) {
   const [teachers, setTeachers] = useState(initial);
   const [adding, setAdding] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"created" | "expires" | "name" | "students">("created");
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? teachers.filter((t) =>
+          [t.name, t.email, t.code].some((f) => f?.toLowerCase().includes(q))
+        )
+      : teachers;
+
+    const expMs = (t: Teacher) =>
+      t.subscriptionExpiresAt ? new Date(t.subscriptionExpiresAt).getTime() : -Infinity;
+
+    return [...filtered].sort((a, b) => {
+      switch (sort) {
+        case "name":
+          return a.name.localeCompare(b.name, "uk");
+        case "students":
+          return b._count.students - a._count.students;
+        case "expires":
+          return expMs(b) - expMs(a);
+        case "created":
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+  }, [teachers, query, sort]);
 
   async function handleLogout() {
     await fetch("/api/admin/login", { method: "DELETE" });
@@ -427,10 +455,39 @@ export function AdminDashboard({ teachers: initial }: { teachers: Teacher[] }) {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4" /> Спеціалісти
+              {query && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  знайдено {visible.length}
+                </span>
+              )}
             </CardTitle>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Пошук за ім'ям, email або кодом"
+                  className="h-8 pl-8 text-sm"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as typeof sort)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs sm:w-52"
+              >
+                <option value="created">Спочатку нові</option>
+                <option value="expires">За датою підписки</option>
+                <option value="students">Більше клієнтів</option>
+                <option value="name">За іменем (А-Я)</option>
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teachers.map((t) => {
+            {visible.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2">Нічого не знайдено.</p>
+            )}
+            {visible.map((t) => {
               const { label, variant, daysLeft } = subStatus(t.subscriptionExpiresAt);
               const isLoading = loading === t.id;
               const expiry = t.subscriptionExpiresAt
