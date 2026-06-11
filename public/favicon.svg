@@ -1,7 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <circle cx="60" cy="60" r="60" fill="#6d4ee0"/>
-  <g fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M50 37 L28 37 L28 83 L50 83 M28 60 L46 60"/>
-    <path d="M90 47 C90 40 85 37 79 37 C71 37 68 41 68 48 C68 54 73 56 79 58 C85 60 90 62 90 70 C90 78 85 82 79 82 C72 82 68 79 68 71"/>
+  <defs>
+    <radialGradient id="bg" cx="40%" cy="33%" r="75%">
+      <stop offset="0%" stop-color="#9d86ec"/>
+      <stop offset="52%" stop-color="#6b46da"/>
+      <stop offset="100%" stop-color="#3a2570"/>
+    </radialGradient>
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="1.8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="60" cy="60" r="60" fill="url(#bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="butt" stroke-linejoin="miter" filter="url(#glow)">
+    <path d="M58 33 L34 33 L34 87 L58 87 M34 60 L54 60"/>
+    <path d="M92 44 C92 37 87 33 79 33 C71 33 66 38 66 45 C66 52 72 56 79 59 C86 62 92 66 92 75 C92 82 87 87 79 87 C71 87 66 82 66 75"/>
   </g>
 </svg>
