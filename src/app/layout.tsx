@@ -17,9 +17,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "EasySch",
   description: "Кабинет специалиста для управления занятиями и клиентами",
-  icons: {
-    icon: "/favicon.svg",
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
