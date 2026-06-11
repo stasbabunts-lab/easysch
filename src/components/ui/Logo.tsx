@@ -21,12 +21,12 @@ export function Logo({ size = 28, className }: LogoProps) {
       <g
         fill="none"
         stroke="#ffffff"
-        strokeWidth="10"
+        strokeWidth="9"
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M56 37 L31 37 L31 83 L56 83 M31 60 L51 60" />
-        <path d="M90 47 C90 40 84 37 76 37 C66 37 62 41 62 48 C62 55 69 57 76 59 C84 61 90 63 90 71 C90 79 84 82 76 82 C67 82 61 79 61 71" />
+        <path d="M50 37 L28 37 L28 83 L50 83 M28 60 L46 60" />
+        <path d="M90 47 C90 40 85 37 79 37 C71 37 68 41 68 48 C68 54 73 56 79 58 C85 60 90 62 90 70 C90 78 85 82 79 82 C72 82 68 79 68 71" />
       </g>
     </svg>
   );
