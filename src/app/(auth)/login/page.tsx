@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { APP_NAME } from "@/lib/labels";
-import { TabletIcon } from "@/components/ui/TabletIcon";
+import { Logo } from "@/components/ui/Logo";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function LoginPage() {
@@ -13,9 +13,7 @@ export default function LoginPage() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex flex-col justify-between w-[380px] shrink-0 bg-sidebar p-10">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <TabletIcon size={17} className="text-white" />
-          </div>
+          <Logo size={32} />
           <span className="text-[16px] font-semibold text-white tracking-tight">{APP_NAME}</span>
         </div>
         <p className="text-xs text-white/30">© 2025 {APP_NAME}</p>
@@ -26,9 +24,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm space-y-8">
           {/* Mobile logo */}
           <div className="flex items-center gap-2 lg:hidden">
-            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
-              <TabletIcon size={15} className="text-white" />
-            </div>
+            <Logo size={28} />
             <span className="text-[15px] font-semibold tracking-tight">{APP_NAME}</span>
           </div>
 

@@ -13,7 +13,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
-import { TabletIcon } from "@/components/ui/TabletIcon";
+import { Logo } from "@/components/ui/Logo";
 
 const NAV = [
   { href: "/dashboard", label: LABELS.dashboard, icon: LayoutDashboard, exact: true },
@@ -33,9 +33,7 @@ export function Sidebar() {
         href="/dashboard"
         className="flex items-center gap-2.5 px-5 h-[60px] border-b border-sidebar-border hover:bg-white/[0.06] transition-colors"
       >
-        <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <TabletIcon size={15} className="text-white" />
-        </div>
+        <Logo size={28} className="shrink-0" />
         <span className="text-[15px] font-semibold text-white tracking-tight">{APP_NAME}</span>
       </Link>
 
