@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/TimeInput";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save } from "lucide-react";
 
@@ -74,8 +74,7 @@ export function WeeklyGrid({ initialSlots }: WeeklyGridProps) {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Початок</Label>
-          <Input
-            type="time"
+          <TimeInput
             className="w-28"
             value={newSlot.startTime}
             onChange={(e) => setNewSlot((s) => ({ ...s, startTime: e.target.value }))}
@@ -83,8 +82,7 @@ export function WeeklyGrid({ initialSlots }: WeeklyGridProps) {
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Кінець</Label>
-          <Input
-            type="time"
+          <TimeInput
             className="w-28"
             value={newSlot.endTime}
             onChange={(e) => setNewSlot((s) => ({ ...s, endTime: e.target.value }))}

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/TimeInput";
+import { DateInput } from "@/components/ui/DateInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -187,11 +189,11 @@ export function StudentActions({ student, hasPaymentDetails }: { student: Studen
           <form onSubmit={createLesson} className="space-y-4">
             <div className="space-y-2">
               <Label>Дата</Label>
-              <Input name="date" type="date" defaultValue={todayStr} required />
+              <DateInput name="date" defaultValue={todayStr} required />
             </div>
             <div className="space-y-2">
               <Label>Час</Label>
-              <Input name="time" type="time" defaultValue="10:00" required />
+              <TimeInput name="time" defaultValue="10:00" required />
             </div>
             <div className="space-y-2">
               <Label>Тривалість (хв)</Label>

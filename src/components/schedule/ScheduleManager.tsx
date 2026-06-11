@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/TimeInput";
+import { DateInput } from "@/components/ui/DateInput";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, User, Users, RefreshCw, Calendar, ChevronLeft, ChevronRight, ChevronDown, AlertTriangle, Eye } from "lucide-react";
@@ -540,9 +542,8 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
                   ({new Date(newSlot.date + "T12:00:00").toLocaleDateString("uk-UA", { weekday: "long" })})
                 </span>
               </Label>
-              <Input
+              <DateInput
                 ref={dateRef}
-                type="date"
                 value={newSlot.date}
                 onChange={(e) => setNewSlot((s) => ({ ...s, date: e.target.value }))}
               />
@@ -551,9 +552,8 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
               <div className="flex gap-2">
                 <div className="flex-1 space-y-1.5">
                   <Label className="text-xs">Початок</Label>
-                  <Input
+                  <TimeInput
                     ref={startTimeRef}
-                    type="time"
                     value={newSlot.startTime}
                     onChange={(e) => setNewSlot((s) => {
                       const newStart = e.target.value;
@@ -778,9 +778,8 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
                     <span className="text-muted-foreground/50 font-normal">— не змінюється для серії</span>
                   )}
                 </Label>
-                <Input
+                <DateInput
                   ref={editDateRef}
-                  type="date"
                   value={editState.date}
                   disabled={editState.applyTo === "future"}
                   onChange={(e) => setEditState((s) => s && { ...s, date: e.target.value })}
@@ -791,9 +790,8 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
               <div className="flex gap-2">
                 <div className="flex-1 space-y-1.5">
                   <Label className="text-xs">Початок</Label>
-                  <Input
+                  <TimeInput
                     ref={editStartTimeRef}
-                    type="time"
                     value={editState.startTime}
                     onChange={(e) => setEditState((s) => {
                       if (!s) return s;
