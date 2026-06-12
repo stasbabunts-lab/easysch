@@ -48,8 +48,9 @@ export function SupportForm() {
           </h2>
           <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
             Сервіс зараз у режимі бета-тестування. Якщо щось не працює, маєте питання
-            чи ідею, як зробити краще — напишіть нам прямо звідси. Ми відповімо вам у Telegram-боті{" "}
-            <span className="text-foreground">@EasySchBot</span> (підключіть його, щоб отримати відповідь).
+            чи ідею, як зробити краще — напишіть нам прямо звідси. Якщо ви підключили Telegram-бот{" "}
+            <span className="text-foreground">@EasySchBot</span> — відповідь надійде туди.
+            Якщо ні — ми відповімо на вашу електронну пошту.
           </p>
 
           {status === "sent" ? (
