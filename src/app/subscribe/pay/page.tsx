@@ -228,8 +228,8 @@ function PayContent() {
               <div className="h-10 w-36 bg-muted animate-pulse rounded-lg" />
             </div>
           )}
-          <p className="text-xs text-muted-foreground mt-2">
-            Копійки — ваш унікальний ідентифікатор. Переводьте точну суму.
+          <p className="text-sm font-semibold text-amber-600 mt-2">
+            ⚠️ Переводьте точну суму
           </p>
         </div>
 
