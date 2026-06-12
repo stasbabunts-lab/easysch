@@ -21,7 +21,7 @@ function telegramStepBody(connected: boolean, code: string): React.ReactNode {
       <>
         Ваш Telegram-бот{" "}
         <span className="font-medium text-emerald-700 inline-flex items-center gap-0.5">
-          (<Check className="h-3.5 w-3.5" /> бот уже підключений)
+          (<Check className="h-3.5 w-3.5" /> бот вже підключено)
         </span>
         . Ви отримуєте сповіщення про оплати та нагадування про заняття.
         Клієнти підключаються так само — кожен отримує свій особистий код на сторінці «Клієнти».
