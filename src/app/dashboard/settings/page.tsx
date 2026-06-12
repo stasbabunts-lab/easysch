@@ -363,15 +363,33 @@ export default function SettingsPage() {
               <p className="text-sm text-emerald-700">Telegram прив&apos;язано.</p>
             </div>
           ) : (
-            <div className="rounded-lg bg-muted/50 px-4 py-3">
-              <p className="text-sm text-muted-foreground">Telegram не прив&apos;язано.</p>
-            </div>
+            <>
+              <a
+                href={`https://t.me/EasySchBot?start=${code}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Підключити Telegram
+              </a>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Відкриється бот{" "}
+                <a
+                  href="https://t.me/EasySchBot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  @EasySchBot
+                </a>{" "}
+                — натисніть «Start». Якщо команда не підставилась автоматично, надішліть її боту вручну:
+              </p>
+              <div className="rounded-lg border border-border/50 bg-card px-4 py-3">
+                <code className="text-sm font-mono text-primary">/start {code}</code>
+              </div>
+            </>
           )}
-          <div className="rounded-lg border border-border/50 bg-card px-4 py-3">
-            <p className="text-xs text-muted-foreground mb-1">Команда для бота:</p>
-
-            <code className="text-sm font-mono text-primary">/start {code}</code>
-          </div>
         </CardContent>
       </Card>
 
