@@ -264,14 +264,6 @@ export default async function Home() {
 
       {/* ── Pricing ── */}
       <section className="max-w-2xl mx-auto px-5 py-16">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
-            Проста й чесна ціна
-          </h2>
-          <p className="text-muted-foreground">
-            Спочатку безкоштовно — платите, лише якщо сподобається
-          </p>
-        </div>
         <div className="max-w-sm mx-auto rounded-2xl border border-border/60 bg-card p-8 shadow-sm text-center">
           <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full mb-5">
             14 днів безкоштовно
