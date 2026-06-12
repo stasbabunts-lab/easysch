@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
-import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell, Rocket } from "lucide-react";
+import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell } from "lucide-react";
 import { LABELS } from "@/lib/labels";
 import Link from "next/link";
 import { NotificationLog } from "@/components/dashboard/NotificationLog";
@@ -166,13 +166,6 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <SubscriptionPill expiresAt={teacher?.subscriptionExpiresAt ?? null} />
-          <Link
-            href="/dashboard/guide"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors shadow-sm"
-          >
-            <Rocket className="h-3.5 w-3.5 text-primary" />
-            Як розпочати
-          </Link>
         </div>
       </div>
 
