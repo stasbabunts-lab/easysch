@@ -70,13 +70,15 @@ function buildSteps(connected: boolean, code: string): Step[] {
     {
       icon: Landmark,
       href: "/dashboard/settings",
-      title: "Налаштуйте API банку",
+      title: "Підключіть Monobank",
       body: (
         <>
-          У «Налаштування» додайте токен вашого банку.
-          Система автоматично перевіряє вхідні транзакції кожні 5 хвилин.{" "}
+          У «Налаштування» → «Банківські рахунки» додайте токен Monobank. Отримати його можна на{" "}
+          <Link href="https://api.monobank.ua/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">api.monobank.ua</Link>{" "}
+          — натисніть «Отримати токен» і підтвердьте у застосунку Monobank.
+          Далі система автоматично перевіряє вхідні платежі кожні 5 хвилин.{" "}
           <span className="font-medium text-emerald-700">🔒 Доступ лише на перегляд:</span>{" "}
-          застосунок лише <span className="font-medium text-foreground">читає виписку</span>, щоб бачити вхідні платежі — він не може переказувати чи знімати кошти або керувати вашим рахунком.{" "}
+          персональний токен Monobank лише <span className="font-medium text-foreground">читає виписку</span> — ним <span className="font-medium text-foreground">неможливо</span> переказати чи зняти кошти або керувати рахунком.{" "}
           <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
           кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
           Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
