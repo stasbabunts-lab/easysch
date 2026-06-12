@@ -15,6 +15,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/labels";
 import { BANK_OPTIONS, ALL_BANK_OPTIONS } from "@/lib/bank";
+import { GuideButton } from "@/components/layout/GuideButton";
 
 interface TeacherSettings {
   teacherReminderMinutes: string;
@@ -261,7 +262,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <h1 className="text-2xl font-bold">Налаштування</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Налаштування</h1>
+        <GuideButton />
+      </div>
 
       {/* Teacher code */}
       <Card className="border-border/50">

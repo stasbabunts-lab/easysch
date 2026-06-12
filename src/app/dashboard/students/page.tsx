@@ -10,6 +10,7 @@ import { StudentCodeBadge } from "@/components/students/StudentCodeBadge";
 import { StudentInviteButton } from "@/components/students/StudentInvite";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { StudentSearch } from "@/components/students/StudentSearch";
+import { GuideButton } from "@/components/layout/GuideButton";
 
 export default async function StudentsPage({
   searchParams,
@@ -41,7 +42,10 @@ export default async function StudentsPage({
             {students.length} {q ? "знайдено" : "клієнтів"}
           </p>
         </div>
-        <AddStudentDialog />
+        <div className="flex items-center gap-2 shrink-0">
+          <GuideButton />
+          <AddStudentDialog />
+        </div>
       </div>
 
       <StudentSearch defaultValue={q} />

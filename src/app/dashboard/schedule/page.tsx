@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ScheduleManager } from "@/components/schedule/ScheduleManager";
+import { GuideButton } from "@/components/layout/GuideButton";
 
 export default async function SchedulePage() {
   const session = await auth();
@@ -18,11 +19,14 @@ export default async function SchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Розклад</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Керуйте заняттями. Клієнти бачать розклад за вашим кодом.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Розклад</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Керуйте заняттями. Клієнти бачать розклад за вашим кодом.
+          </p>
+        </div>
+        <GuideButton />
       </div>
       <ScheduleManager students={students} weekStartsMonday={teacher?.weekStartsMonday ?? false} />
     </div>

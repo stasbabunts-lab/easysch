@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { formatAmount, formatAmountWhole } from "@/lib/format";
 import Link from "next/link";
 import { RefreshCw, Users, ArrowDownLeft, Check, X, ChevronDown, MessageSquare } from "lucide-react";
+import { GuideButton } from "@/components/layout/GuideButton";
 
 interface ActiveClient {
   id: string;
@@ -478,6 +479,7 @@ export default function PaymentsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${polling ? "animate-spin" : ""}`} />
             Перевірити
           </Button>
+          <GuideButton />
         </div>
       </div>
 

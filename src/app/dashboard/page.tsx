@@ -7,6 +7,7 @@ import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell } from "lucide
 import { LABELS } from "@/lib/labels";
 import Link from "next/link";
 import { NotificationLog } from "@/components/dashboard/NotificationLog";
+import { GuideButton } from "@/components/layout/GuideButton";
 
 function formatDateTime(date: Date) {
   return date.toLocaleString("uk-UA", {
@@ -166,6 +167,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <SubscriptionPill expiresAt={teacher?.subscriptionExpiresAt ?? null} />
+          <GuideButton />
         </div>
       </div>
 
