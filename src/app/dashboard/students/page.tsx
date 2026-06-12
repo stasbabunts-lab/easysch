@@ -7,6 +7,7 @@ import { InlinePriceEdit } from "@/components/students/InlinePriceEdit";
 import { ChevronRight, MessageCircle, MessageCircleOff } from "lucide-react";
 import { formatOffset } from "@/lib/format";
 import { StudentCodeBadge } from "@/components/students/StudentCodeBadge";
+import { StudentInviteButton } from "@/components/students/StudentInvite";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { StudentSearch } from "@/components/students/StudentSearch";
 
@@ -95,7 +96,10 @@ export default async function StudentsPage({
 
                     {/* Right column */}
                     <div className="shrink-0 flex flex-col items-end gap-1.5">
-                      <StudentCodeBadge code={s.code} />
+                      <div className="flex items-center gap-1.5">
+                        <StudentInviteButton name={s.name} code={s.code} />
+                        <StudentCodeBadge code={s.code} />
+                      </div>
                       {s.telegramId ? (
                         <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                           <MessageCircle className="h-3 w-3 shrink-0" />
