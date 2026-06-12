@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { APP_NAME } from "@/lib/labels";
@@ -12,6 +13,15 @@ export default async function Home() {
   const session = await auth();
   if (session) redirect("/dashboard");
   // Not logged in — show landing page below
+
+  // Pricing shown on the landing — pulled from settings so it stays in sync.
+  const [priceRow, periodRow] = await Promise.all([
+    prisma.appSettings.findUnique({ where: { key: "subscription_price_kopecks" } }),
+    prisma.appSettings.findUnique({ where: { key: "subscription_period_days" } }),
+  ]);
+  const priceUah = Math.round(parseInt(priceRow?.value ?? "15000", 10) / 100) || 150;
+  const periodDays = parseInt(periodRow?.value ?? "30", 10) || 30;
+  const periodLabel = periodDays === 30 ? "міс" : `${periodDays} дн`;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -249,6 +259,37 @@ export default async function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section className="max-w-2xl mx-auto px-5 py-16">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
+            Проста й чесна ціна
+          </h2>
+          <p className="text-muted-foreground">
+            Спочатку безкоштовно — платите, лише якщо сподобається
+          </p>
+        </div>
+        <div className="max-w-sm mx-auto rounded-2xl border border-border/60 bg-card p-8 shadow-sm text-center">
+          <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full mb-5">
+            14 днів безкоштовно
+          </span>
+          <div className="flex items-end justify-center gap-1.5">
+            <span className="text-5xl font-bold tracking-tight">{priceUah}</span>
+            <span className="text-lg font-medium text-muted-foreground mb-1.5">грн / {periodLabel}</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
+            Усі функції без обмежень. На старті без прив&apos;язки картки, без прихованих платежів.
+          </p>
+          <Link
+            href="/register"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 bg-primary text-primary-foreground font-medium px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors"
+          >
+            Спробувати безкоштовно
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 
