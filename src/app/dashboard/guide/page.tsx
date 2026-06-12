@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, Bot, Landmark, CreditCard, CalendarPlus } from "lucide-react";
+import { ArrowLeft, Bot, Landmark, CreditCard, CalendarPlus, MessageCircle, Check } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { SupportForm } from "./SupportForm";
 
 export const metadata = {
@@ -13,64 +15,103 @@ interface Step {
   body: React.ReactNode;
 }
 
-const STEPS: Step[] = [
-  {
-    icon: Bot,
-    href: "/dashboard/settings",
-    title: "Підключіть Telegram-бот",
-    body: (
+function telegramStepBody(connected: boolean, code: string): React.ReactNode {
+  if (connected) {
+    return (
       <>
-        У «Налаштування» знайдіть ваш персональний код і надішліть команду{" "}
-        <code className="bg-muted px-1 py-0.5 rounded text-xs">/start КОД</code> боту{" "}
-        <Link href="https://t.me/EasySchBot" target="_blank" className="text-primary hover:underline">@EasySchBot</Link>.
-        Після цього ви отримуватимете сповіщення про оплати та нагадування про заняття.
+        Ваш Telegram-бот{" "}
+        <span className="font-medium text-emerald-700 inline-flex items-center gap-0.5">
+          (<Check className="h-3.5 w-3.5" /> бот уже підключений)
+        </span>
+        . Ви отримуєте сповіщення про оплати та нагадування про заняття.
         Клієнти підключаються так само — кожен отримує свій особистий код на сторінці «Клієнти».
       </>
-    ),
-  },
-  {
-    icon: CreditCard,
-    href: "/dashboard/payments",
-    title: "Заповніть реквізити для оплати",
-    body: (
-      <>
-        На сторінці «Оплати» вкажіть номер картки або IBAN.
-        Ці реквізити автоматично надсилаються клієнту в Telegram після кожного заняття та коли ви створюєте запит на оплату.
-      </>
-    ),
-  },
-  {
-    icon: Landmark,
-    href: "/dashboard/settings",
-    title: "Налаштуйте API банку",
-    body: (
-      <>
-        У «Налаштування» додайте токен вашого банку.
-        Система автоматично перевіряє вхідні транзакції кожні 5 хвилин.{" "}
-        <span className="font-medium text-emerald-700">🔒 Доступ лише на перегляд:</span>{" "}
-        застосунок лише <span className="font-medium text-foreground">читає виписку</span>, щоб бачити вхідні платежі — він не може переказувати чи знімати кошти або керувати вашим рахунком.{" "}
-        <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
-        кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
-        Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
-      </>
-    ),
-  },
-  {
-    icon: CalendarPlus,
-    href: "/dashboard/students",
-    title: "Додавайте клієнтів і заняття",
-    body: (
-      <>
-        У «Клієнти» додайте учнів і вкажіть ціну заняття.
-        У «Розклад» створюйте слоти часу — поки слот не призначено клієнту, він відображається як{" "}
-        <span className="font-medium text-foreground">вільний час</span> на публічній сторінці розкладу.
-        Після призначення клієнту слот стає заняттям і зникає з публічного вигляду.
-      </>
-    ),
-  },
-];
+    );
+  }
+  return (
+    <>
+      Натисніть кнопку — ваш персональний код підставиться автоматично. Після підключення
+      ви отримуватимете сповіщення про оплати та нагадування про заняття.
+      <a
+        href={`https://t.me/EasySchBot?start=${code}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors no-underline"
+      >
+        <MessageCircle className="h-4 w-4" />
+        Підключити Telegram
+      </a>
+      <span className="mt-2 block">
+        Клієнти підключаються так само — кожен отримує свій особистий код на сторінці «Клієнти».
+      </span>
+    </>
+  );
+}
 
-export default function GuidePage() {
+function buildSteps(connected: boolean, code: string): Step[] {
+  return [
+    {
+      icon: Bot,
+      href: "/dashboard/settings",
+      title: "Підключіть Telegram-бот",
+      body: telegramStepBody(connected, code),
+    },
+    {
+      icon: CreditCard,
+      href: "/dashboard/payments",
+      title: "Заповніть реквізити для оплати",
+      body: (
+        <>
+          На сторінці «Оплати» вкажіть номер картки або IBAN.
+          Ці реквізити автоматично надсилаються клієнту в Telegram після кожного заняття та коли ви створюєте запит на оплату.
+        </>
+      ),
+    },
+    {
+      icon: Landmark,
+      href: "/dashboard/settings",
+      title: "Налаштуйте API банку",
+      body: (
+        <>
+          У «Налаштування» додайте токен вашого банку.
+          Система автоматично перевіряє вхідні транзакції кожні 5 хвилин.{" "}
+          <span className="font-medium text-emerald-700">🔒 Доступ лише на перегляд:</span>{" "}
+          застосунок лише <span className="font-medium text-foreground">читає виписку</span>, щоб бачити вхідні платежі — він не може переказувати чи знімати кошти або керувати вашим рахунком.{" "}
+          <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
+          кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
+          Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
+        </>
+      ),
+    },
+    {
+      icon: CalendarPlus,
+      href: "/dashboard/students",
+      title: "Додавайте клієнтів і заняття",
+      body: (
+        <>
+          У «Клієнти» додайте учнів і вкажіть ціну заняття.
+          У «Розклад» створюйте слоти часу — поки слот не призначено клієнту, він відображається як{" "}
+          <span className="font-medium text-foreground">вільний час</span> на публічній сторінці розкладу.
+          Після призначення клієнту слот стає заняттям і зникає з публічного вигляду.
+        </>
+      ),
+    },
+  ];
+}
+
+export default async function GuidePage() {
+  const session = await auth();
+  const teacher = session
+    ? await prisma.teacher.findUnique({
+        where: { id: session.user.id },
+        select: { telegramChatId: true, code: true },
+      })
+    : null;
+
+  const connected = !!teacher?.telegramChatId;
+  const code = teacher?.code ?? "";
+  const STEPS = buildSteps(connected, code);
+
   return (
     <div className="space-y-6">
       <div>
