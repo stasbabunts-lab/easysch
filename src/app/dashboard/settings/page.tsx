@@ -376,6 +376,34 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Schedule view */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Вигляд розкладу
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={toggleWeekStart}
+            disabled={savingWeekStart}
+            className="w-full flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3 text-left hover:bg-muted/50 transition-colors disabled:opacity-60"
+          >
+            <div className="flex-1">
+              <p className="text-sm font-medium">Починати тиждень з понеділка</p>
+              <p className="text-xs text-muted-foreground">
+                Розклад показує повний тиждень (Пн–Нд); минулі дні відображаються блякло.
+              </p>
+            </div>
+            {settings.weekStartsMonday
+              ? <ToggleRight className="h-6 w-6 text-emerald-600 shrink-0" />
+              : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />}
+          </button>
+        </CardContent>
+      </Card>
+
       {/* Teacher code */}
       <Card className="border-border/50">
         <CardHeader className="pb-3"><CardTitle className="text-base">Ваш код</CardTitle></CardHeader>
@@ -530,34 +558,6 @@ export default function SettingsPage() {
               {savingReminders ? "Зберігаємо..." : "Зберегти нагадування"}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* Schedule view */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Вигляд розкладу
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <button
-            type="button"
-            onClick={toggleWeekStart}
-            disabled={savingWeekStart}
-            className="w-full flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3 text-left hover:bg-muted/50 transition-colors disabled:opacity-60"
-          >
-            <div className="flex-1">
-              <p className="text-sm font-medium">Починати тиждень з понеділка</p>
-              <p className="text-xs text-muted-foreground">
-                Розклад показує повний тиждень (Пн–Нд); минулі дні відображаються блякло.
-              </p>
-            </div>
-            {settings.weekStartsMonday
-              ? <ToggleRight className="h-6 w-6 text-emerald-600 shrink-0" />
-              : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />}
-          </button>
         </CardContent>
       </Card>
 
