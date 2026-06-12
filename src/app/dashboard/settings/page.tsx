@@ -312,6 +312,70 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Bank accounts */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <CardTitle className="text-base">Банківські рахунки</CardTitle>
+            <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={openAdd}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Додати
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Security note */}
+          <div className="flex gap-3 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-emerald-800 leading-relaxed">
+              <strong>Тільки читання.</strong> Застосунок використовує API банку виключно для
+              отримання списку вхідних платежів — він не переказує й не знімає кошти та не змінює
+              дані рахунку. Створюючи доступ, обирайте режим «лише виписка / читання».
+            </p>
+          </div>
+
+          {accounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              Рахунки не додані. Натисніть «Додати» щоб підключити банк.
+              <br />
+              <span className="text-xs">Без підключення платежі вводяться вручну.</span>
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {accounts.map((acc) => (
+                <div
+                  key={acc.id}
+                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
+                    acc.isActive ? "border-border/50 bg-card" : "border-border/30 bg-muted/20 opacity-60"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{acc.label}</p>
+                    <p className="text-xs text-muted-foreground">{bankLabel(acc.bankType)}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleAccount(acc)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title={acc.isActive ? "Вимкнути" : "Увімкнути"}
+                  >
+                    {acc.isActive
+                      ? <ToggleRight className="h-5 w-5 text-emerald-600" />
+                      : <ToggleLeft className="h-5 w-5" />}
+                  </button>
+                  <button
+                    onClick={() => deleteAccount(acc.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Видалити"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Teacher code */}
       <Card className="border-border/50">
         <CardHeader className="pb-3"><CardTitle className="text-base">Ваш код</CardTitle></CardHeader>
@@ -494,70 +558,6 @@ export default function SettingsPage() {
               ? <ToggleRight className="h-6 w-6 text-emerald-600 shrink-0" />
               : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />}
           </button>
-        </CardContent>
-      </Card>
-
-      {/* Bank accounts */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            <CardTitle className="text-base">Банківські рахунки</CardTitle>
-            <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={openAdd}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> Додати
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {/* Security note */}
-          <div className="flex gap-3 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
-            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-emerald-800 leading-relaxed">
-              <strong>Тільки читання.</strong> Застосунок використовує API банку виключно для
-              отримання списку вхідних платежів — він не переказує й не знімає кошти та не змінює
-              дані рахунку. Створюючи доступ, обирайте режим «лише виписка / читання».
-            </p>
-          </div>
-
-          {accounts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">
-              Рахунки не додані. Натисніть «Додати» щоб підключити банк.
-              <br />
-              <span className="text-xs">Без підключення платежі вводяться вручну.</span>
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {accounts.map((acc) => (
-                <div
-                  key={acc.id}
-                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
-                    acc.isActive ? "border-border/50 bg-card" : "border-border/30 bg-muted/20 opacity-60"
-                  }`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{acc.label}</p>
-                    <p className="text-xs text-muted-foreground">{bankLabel(acc.bankType)}</p>
-                  </div>
-                  <button
-                    onClick={() => toggleAccount(acc)}
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                    title={acc.isActive ? "Вимкнути" : "Увімкнути"}
-                  >
-                    {acc.isActive
-                      ? <ToggleRight className="h-5 w-5 text-emerald-600" />
-                      : <ToggleLeft className="h-5 w-5" />}
-                  </button>
-                  <button
-                    onClick={() => deleteAccount(acc.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                    title="Видалити"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 
