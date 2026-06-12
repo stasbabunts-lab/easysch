@@ -267,6 +267,51 @@ export default function SettingsPage() {
         <GuideButton />
       </div>
 
+      {/* Telegram */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-blue-500" />
+            Telegram сповіщення для вас
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {settings.telegramChatId ? (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+              <p className="text-sm text-emerald-700">Telegram прив&apos;язано.</p>
+            </div>
+          ) : (
+            <>
+              <a
+                href={`https://t.me/EasySchBot?start=${code}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Підключити Telegram
+              </a>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Відкриється бот{" "}
+                <a
+                  href="https://t.me/EasySchBot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  @EasySchBot
+                </a>{" "}
+                — натисніть «Start». Якщо команда не підставилась автоматично, надішліть її боту вручну:
+              </p>
+              <div className="rounded-lg border border-border/50 bg-card px-4 py-3">
+                <code className="text-sm font-mono text-primary">/start {code}</code>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Teacher code */}
       <Card className="border-border/50">
         <CardHeader className="pb-3"><CardTitle className="text-base">Ваш код</CardTitle></CardHeader>
@@ -349,51 +394,6 @@ export default function SettingsPage() {
               {savingDisplay ? "Зберігаємо..." : "Зберегти"}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* Telegram */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-blue-500" />
-            Telegram сповіщення для вас
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {settings.telegramChatId ? (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
-              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-              <p className="text-sm text-emerald-700">Telegram прив&apos;язано.</p>
-            </div>
-          ) : (
-            <>
-              <a
-                href={`https://t.me/EasySchBot?start=${code}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Підключити Telegram
-              </a>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Відкриється бот{" "}
-                <a
-                  href="https://t.me/EasySchBot"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  @EasySchBot
-                </a>{" "}
-                — натисніть «Start». Якщо команда не підставилась автоматично, надішліть її боту вручну:
-              </p>
-              <div className="rounded-lg border border-border/50 bg-card px-4 py-3">
-                <code className="text-sm font-mono text-primary">/start {code}</code>
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
 
