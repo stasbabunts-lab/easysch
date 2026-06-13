@@ -34,6 +34,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
   const bankAccounts = await prisma.bankAccount.findMany({
     where: { teacherId, isActive: true },
   });
+  // No real bank account → sums are round and the "pay exact" line is omitted.
+  const bankConnected = bankAccounts.length > 0;
 
   // If no real bank accounts configured, fall back to mock (dev mode)
   const adapters =
@@ -306,7 +308,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
         slot.student.telegramId,
         slot.student.paymentDetails ?? teacher.paymentDetails ?? "",
         request?.amountTotal,
-        teacher.postLessonNote
+        teacher.postLessonNote,
+        bankConnected
       ).catch(() => null);
       await logNotification({
         teacherId,
@@ -362,7 +365,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
           student.telegramId,
           student.paymentDetails ?? teacher.paymentDetails ?? "",
           amount,
-          teacher.postLessonNote
+          teacher.postLessonNote,
+          bankConnected
         ).catch(() => null);
         await logNotification({
           teacherId,

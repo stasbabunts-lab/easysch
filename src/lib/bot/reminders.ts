@@ -90,14 +90,18 @@ export async function sendPostLessonPaymentReminder(
   studentTelegramId: string,
   paymentDetails: string,
   amountTotal?: number,
-  postLessonNote?: string | null
+  postLessonNote?: string | null,
+  requireExactSum: boolean = false
 ) {
   const amountStr = amountTotal !== undefined ? formatAmount(amountTotal) : "—";
-  let text = `Ви завершили заняття на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n`;
-  text += `${paymentDetails}\n\n`;
-  text += `Будь ласка, сплачуйте точну суму`;
-  if (postLessonNote?.trim()) text += `\n\n${postLessonNote.trim()}`;
+  const parts = [
+    `Ви завершили заняття на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n${paymentDetails}`,
+  ];
+  // The "exact sum" ask only matters when a bank API auto-matches by the kopeck tail.
+  if (requireExactSum) parts.push(`Будь ласка, сплачуйте точну суму, щоб система могла розпізнати ваш платіж`);
+  if (postLessonNote?.trim()) parts.push(postLessonNote.trim());
 
+  const text = parts.join("\n\n");
   await sendTelegramMessage(studentTelegramId, text);
   return text;
 }
@@ -107,15 +111,18 @@ export async function sendPaymentRequestNotification(
   paymentDetails: string,
   amountTotal: number,
   postLessonNote?: string | null,
-  description?: string | null
+  description?: string | null,
+  requireExactSum: boolean = false
 ) {
   const amountStr = formatAmount(amountTotal);
-  let text = `💳 Запит на оплату\n\n`;
-  text += `Сума до сплати: ${amountStr}\n\n`;
-  if (description?.trim()) text += `📝 ${description.trim()}\n\n`;
-  text += `Реквізити:\n${paymentDetails}\n\n`;
-  text += `Будь ласка, сплачуйте точну суму`;
-  if (postLessonNote?.trim()) text += `\n\n${postLessonNote.trim()}`;
+  const parts = [`💳 Запит на оплату`, `Сума до сплати: ${amountStr}`];
+  if (description?.trim()) parts.push(`📝 ${description.trim()}`);
+  parts.push(`Реквізити:\n${paymentDetails}`);
+  // The "exact sum" ask only matters when a bank API auto-matches by the kopeck tail.
+  if (requireExactSum) parts.push(`Будь ласка, сплачуйте точну суму, щоб система могла розпізнати ваш платіж`);
+  if (postLessonNote?.trim()) parts.push(postLessonNote.trim());
+
+  const text = parts.join("\n\n");
   await sendTelegramMessage(studentTelegramId, text);
   return text;
 }

@@ -539,12 +539,23 @@ export default function PaymentsPage() {
                   />
                 </div>
 
-                {/* Msg 3 — fixed bold */}
+                {/* Msg 3 — "exact sum" line, sent only when a bank API is connected */}
                 <div className="flex gap-3 items-start">
                   <span className="text-xs text-muted-foreground font-mono mt-2.5 w-4 shrink-0">3</span>
-                  <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm font-bold text-foreground">
-                    Будь ласка, сплачуйте точну суму
-                  </div>
+                  {bankConnected ? (
+                    <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm font-bold text-foreground">
+                      Будь ласка, сплачуйте точну суму, щоб система могла розпізнати ваш платіж
+                    </div>
+                  ) : (
+                    <div className="flex-1 rounded-lg bg-muted/20 border border-dashed border-border/50 px-3 py-2.5 text-sm">
+                      <span className="text-muted-foreground/60 line-through">
+                        Будь ласка, сплачуйте точну суму, щоб система могла розпізнати ваш платіж
+                      </span>
+                      <span className="mt-1.5 block text-xs text-amber-700">
+                        Неактивно — підключіть API Monobank у «Налаштування», щоб платежі розпізнавались автоматично за точною сумою.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Msg 4 — editable input */}
