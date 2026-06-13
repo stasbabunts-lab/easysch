@@ -9,6 +9,9 @@ import Link from "next/link";
 import { NotificationLog } from "@/components/dashboard/NotificationLog";
 import { GuideButton } from "@/components/layout/GuideButton";
 
+// Lesson.scheduledAt stores the slot's wall-clock time as UTC (built from the
+// "HH:MM" string on a UTC server), so format it back in UTC to echo that exact
+// wall-clock time. Using a real timezone here would shift it by the offset (+3h).
 function formatDateTime(date: Date) {
   return date.toLocaleString("uk-UA", {
     weekday: "short",
@@ -16,7 +19,7 @@ function formatDateTime(date: Date) {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Kyiv",
+    timeZone: "UTC",
   });
 }
 

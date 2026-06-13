@@ -29,13 +29,13 @@ export async function sendStudentLessonReminder(
   const time = scheduledAt.toLocaleTimeString("uk-UA", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Kyiv",
+    timeZone: "UTC", // scheduledAt holds wall-clock time stored as UTC — echo it back, don't shift
   });
   const date = scheduledAt.toLocaleDateString("uk-UA", {
     weekday: "long",
     day: "numeric",
     month: "long",
-    timeZone: "Europe/Kyiv",
+    timeZone: "UTC", // scheduledAt holds wall-clock time stored as UTC — echo it back, don't shift
   });
   const typeLabel = isWeekly ? "щотижневе" : "разове";
   const timeLabel =
@@ -63,13 +63,13 @@ export async function sendTeacherLessonReminder(
   const time = scheduledAt.toLocaleTimeString("uk-UA", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Kyiv",
+    timeZone: "UTC", // scheduledAt holds wall-clock time stored as UTC — echo it back, don't shift
   });
   const date = scheduledAt.toLocaleDateString("uk-UA", {
     weekday: "long",
     day: "numeric",
     month: "long",
-    timeZone: "Europe/Kyiv",
+    timeZone: "UTC", // scheduledAt holds wall-clock time stored as UTC — echo it back, don't shift
   });
   const typeLabel = isWeekly ? "Щотижневе" : "Разове";
   const timeLabel =
