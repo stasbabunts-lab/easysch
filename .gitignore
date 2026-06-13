@@ -57,6 +57,10 @@ dev.log
 # claude code local files
 /.claude/
 
+# python
+__pycache__/
+*.pyc
+
 # telegram channel finder — login session + scraped output
 /scripts/*.session
 /scripts/*.session-journal
