@@ -11,7 +11,7 @@ export const metadata = {
 interface Step {
   icon: React.ElementType;
   href: string;
-  title: string;
+  title: React.ReactNode;
   body: React.ReactNode;
 }
 
@@ -68,24 +68,6 @@ function buildSteps(connected: boolean, code: string): Step[] {
       ),
     },
     {
-      icon: Landmark,
-      href: "/dashboard/settings",
-      title: "Підключіть Monobank",
-      body: (
-        <>
-          У «Налаштування» → «Банківські рахунки» додайте токен Monobank. Отримати його можна на{" "}
-          <Link href="https://api.monobank.ua/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">api.monobank.ua</Link>{" "}
-          — натисніть «Отримати токен» і підтвердьте у застосунку Monobank.
-          Далі система автоматично перевіряє вхідні платежі кожні 5 хвилин.{" "}
-          <span className="font-medium text-emerald-700">🔒 Доступ лише на перегляд:</span>{" "}
-          персональний токен Monobank лише <span className="font-medium text-foreground">читає виписку</span> — ним <span className="font-medium text-foreground">неможливо</span> переказати чи зняти кошти або керувати рахунком.{" "}
-          <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
-          кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
-          Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
-        </>
-      ),
-    },
-    {
       icon: CalendarPlus,
       href: "/dashboard/students",
       title: "Додавайте клієнтів і заняття",
@@ -95,6 +77,34 @@ function buildSteps(connected: boolean, code: string): Step[] {
           У «Розклад» створюйте слоти часу — поки слот не призначено клієнту, він відображається як{" "}
           <span className="font-medium text-foreground">вільний час</span> на публічній сторінці розкладу.
           Після призначення клієнту слот стає заняттям і зникає з публічного вигляду.
+        </>
+      ),
+    },
+    {
+      icon: Landmark,
+      href: "/dashboard/settings",
+      title: (
+        <>
+          Підключіть Monobank{" "}
+          <span className="ml-1 inline-block align-middle rounded-full bg-amber-100 text-amber-700 text-[11px] font-medium px-2 py-0.5">
+            необов&apos;язково
+          </span>
+        </>
+      ),
+      body: (
+        <>
+          Стежити за балансами можна й вручну — оплату відмічаєте кнопкою на сторінці «Оплати».
+          Але <span className="font-medium text-foreground">набагато зручніше підключити Monobank</span>:
+          тоді система сама бачить вхідні платежі й автоматично зараховує їх потрібному клієнту, без ручної роботи.{" "}
+          У «Налаштування» → «Банківські рахунки» додайте токен Monobank. Отримати його можна на{" "}
+          <Link href="https://api.monobank.ua/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">api.monobank.ua</Link>{" "}
+          — натисніть «Отримати токен» і підтвердьте у застосунку Monobank.
+          Далі система автоматично перевіряє вхідні платежі кожні 5 хвилин.{" "}
+          <span className="font-medium text-emerald-700">🔒 Доступ лише на перегляд:</span>{" "}
+          персональний токен Monobank лише <span className="font-medium text-foreground">читає виписку</span> — ним <span className="font-medium text-foreground">неможливо</span> переказати чи зняти кошти або керувати рахунком.{" "}
+          <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
+          кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
+          Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
         </>
       ),
     },
@@ -128,7 +138,7 @@ export default async function GuidePage() {
           <span>🚀</span> Як розпочати роботу
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Чотири кроки, щоб налаштувати автоматичні оплати та нагадування.
+          Кілька кроків, щоб почати — і за бажанням налаштувати автоматичні оплати.
         </p>
       </div>
 
