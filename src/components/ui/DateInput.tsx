@@ -100,12 +100,11 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
           className={className ? `${className} pr-9` : "pr-9"}
           value={text}
           onPointerDown={(e) => {
-            // Touch/pen: open the device's native date picker instead of the
-            // keyboard. Mouse: leave normal focus/typing (+ wheel stepping) alone.
-            if (e.pointerType !== "mouse") {
-              e.preventDefault();
-              openPicker();
-            }
+            // Tap/click anywhere in the field opens the device's native date picker.
+            // Touch/pen: also suppress the default focus so the soft keyboard doesn't
+            // pop up. Mouse: keep focus so manual typing + wheel stepping still work.
+            if (e.pointerType !== "mouse") e.preventDefault();
+            openPicker();
           }}
           onChange={(e) => {
             const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
@@ -141,7 +140,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
             setText(isoToDisplay(iso));
             emit(iso);
           }}
-          className="pointer-events-none absolute right-2 bottom-0 h-0 w-0 opacity-0"
+          className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
         />
       </div>
       {name && <input type="hidden" name={name} value={canonical} />}
