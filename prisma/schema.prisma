@@ -96,6 +96,8 @@ model Student {
   sendPaymentReminder      Boolean  @default(true) // send Telegram payment reminder after each lesson
   paymentDetails           String?  // overrides teacher.paymentDetails for this student
   notes                    String?
+  isArchived               Boolean  @default(false) // archived = hidden from active lists/pickers, history kept; restorable
+  archivedAt               DateTime?
   createdAt      DateTime @default(now())
 
   lessons         Lesson[]

@@ -150,6 +150,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
       isActive: true,
       isGroup: false,
       studentId: { not: null },
+      student: { isArchived: false },
       date: { gte: today, lte: windowEnd.toISOString().slice(0, 10) },
     },
     include: { student: true },
@@ -219,6 +220,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
     const studentNames = slot.groupStudents.map((gs) => gs.student.name).join(", ");
 
     for (const { student } of slot.groupStudents) {
+      if (student.isArchived) continue;
       const lesson = await ensureLesson(slot.id, teacherId, student.id, scheduledAt, slot.durationMin);
 
       if (!lesson.reminderSent && student.telegramId && msUntil >= 5 * 60 * 1000) {
@@ -279,6 +281,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         isActive: true,
         isGroup: false,
         studentId: { not: null },
+        student: { isArchived: false },
         date: { gte: yesterday, lte: today },
       },
       include: { student: true, lessons: { where: { paymentReminderSent: false } } },
@@ -344,6 +347,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
       if (slotEnd.getTime() > now || slotEnd.getTime() < threeHoursAgo.getTime()) continue;
 
       for (const { student } of slot.groupStudents) {
+        if (student.isArchived) continue;
         if (!student.telegramId || !student.sendPaymentReminder) continue;
 
         const lesson = slot.lessons.find((l) => l.studentId === student.id);

@@ -281,7 +281,7 @@ bot.command("mystudents", async (ctx) => {
   const telegramId = String(ctx.from!.id);
   const teacher = await prisma.teacher.findFirst({
     where: { telegramChatId: telegramId },
-    include: { students: { select: { name: true, code: true } } },
+    include: { students: { where: { isArchived: false }, select: { name: true, code: true } } },
   });
 
   if (!teacher) {
@@ -408,6 +408,7 @@ bot.command("debts", async (ctx) => {
   const students = await prisma.student.findMany({
     where: {
       teacherId: teacher.id,
+      isArchived: false,
       OR: [
         { slots: { some: { isActive: true, date: { gte: sixtyDaysAgoStr } } } },
         { groupSlots: { some: { slot: { isActive: true, date: { gte: sixtyDaysAgoStr } } } } },

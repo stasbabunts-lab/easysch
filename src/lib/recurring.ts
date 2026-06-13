@@ -42,9 +42,11 @@ export async function extendExpiringSeries(teacherId: string) {
 
     const last = await prisma.availabilitySlot.findFirst({
       where: { recurringGroupId: g.recurringGroupId, date: g._max.date ?? undefined },
-      include: { groupStudents: { select: { studentId: true } } },
+      include: { groupStudents: { select: { studentId: true } }, student: { select: { isArchived: true } } },
     });
     if (!last) continue;
+    // Don't keep extending an individual series whose student was archived.
+    if (last.student?.isArchived) continue;
 
     const nextDate = new Date(last.date + "T12:00:00");
     nextDate.setDate(nextDate.getDate() + 7);

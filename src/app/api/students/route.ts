@@ -9,7 +9,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const students = await prisma.student.findMany({
-    where: { teacherId: session.user.id },
+    where: { teacherId: session.user.id, isArchived: false },
     orderBy: { createdAt: "asc" },
     include: {
       _count: { select: { lessons: true } },

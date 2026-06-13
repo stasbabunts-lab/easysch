@@ -26,6 +26,7 @@ export async function GET() {
   const students = await prisma.student.findMany({
     where: {
       teacherId,
+      isArchived: false,
       OR: [
         { slots: { some: { isActive: true, date: { gte: sixtyDaysAgoStr } } } },
         { groupSlots: { some: { slot: { isActive: true, date: { gte: sixtyDaysAgoStr } } } } },

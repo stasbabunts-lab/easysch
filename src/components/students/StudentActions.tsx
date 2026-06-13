@@ -13,7 +13,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2, CreditCard, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Pencil, Archive, CreditCard, AlertCircle } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 
 interface Student {
@@ -78,14 +78,20 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
     }
   }
 
-  async function deleteStudent() {
-    if (!confirm(`Видалити клієнта "${student.name}"? Усі дані будуть видалені.`)) return;
-    const res = await fetch(`/api/students/${student.id}`, { method: "DELETE" });
+  async function archiveStudent() {
+    if (!confirm(
+      `Архівувати клієнта "${student.name}"?\n\nЙого буде приховано зі списків і пікера занять, нагадування припиняться. Уся історія (заняття, оплати, баланс) збережеться — клієнта можна повернути з архіву.`
+    )) return;
+    const res = await fetch(`/api/students/${student.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isArchived: true }),
+    });
     if (res.ok) {
-      toast.success("Клієнта видалено");
+      toast.success("Клієнта архівовано");
       router.push("/dashboard/students");
     } else {
-      toast.error("Помилка видалення");
+      toast.error("Помилка архівування");
     }
   }
 
@@ -115,8 +121,8 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
           <DropdownMenuItem onClick={() => setEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-2" /> Редагувати
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={deleteStudent} className="text-destructive">
-            <Trash2 className="h-4 w-4 mr-2" /> Видалити
+          <DropdownMenuItem onClick={archiveStudent}>
+            <Archive className="h-4 w-4 mr-2" /> Архівувати
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

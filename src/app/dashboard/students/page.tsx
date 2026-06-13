@@ -10,6 +10,7 @@ import { StudentCodeBadge } from "@/components/students/StudentCodeBadge";
 import { StudentInviteButton } from "@/components/students/StudentInvite";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { StudentSearch } from "@/components/students/StudentSearch";
+import { StudentArchive } from "@/components/students/StudentArchive";
 import { GuideButton } from "@/components/layout/GuideButton";
 
 export default async function StudentsPage({
@@ -25,12 +26,20 @@ export default async function StudentsPage({
   const students = await prisma.student.findMany({
     where: {
       teacherId: session.user.id,
+      isArchived: false,
       ...(q ? { name: { contains: q } } : {}),
     },
     orderBy: { createdAt: "asc" },
     include: {
       _count: { select: { lessons: true } },
     },
+  });
+
+  // Archived clients — shown in a collapsible section (hidden while searching).
+  const archived = await prisma.student.findMany({
+    where: { teacherId: session.user.id, isArchived: true },
+    orderBy: { archivedAt: "desc" },
+    select: { id: true, name: true, paymentOffset: true, _count: { select: { lessons: true } } },
   });
 
   return (
@@ -124,6 +133,17 @@ export default async function StudentsPage({
             </Link>
           ))}
         </div>
+      )}
+
+      {!q && (
+        <StudentArchive
+          students={archived.map((s) => ({
+            id: s.id,
+            name: s.name,
+            paymentOffset: s.paymentOffset,
+            lessonCount: s._count.lessons,
+          }))}
+        />
       )}
     </div>
   );

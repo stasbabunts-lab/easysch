@@ -8,7 +8,7 @@ export default async function SchedulePage() {
   if (!session) return null;
 
   const students = await prisma.student.findMany({
-    where: { teacherId: session.user.id },
+    where: { teacherId: session.user.id, isArchived: false },
     select: { id: true, name: true, createdAt: true },
   });
 

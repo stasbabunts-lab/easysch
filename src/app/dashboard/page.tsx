@@ -107,9 +107,9 @@ export default async function DashboardPage() {
       orderBy: { scheduledAt: "asc" },
       take: 5,
     }),
-    prisma.student.count({ where: { teacherId } }),
+    prisma.student.count({ where: { teacherId, isArchived: false } }),
     prisma.student.findMany({
-      where: { teacherId },
+      where: { teacherId, isArchived: false },
       select: {
         lessonPrice: true,
         paymentOffset: true,

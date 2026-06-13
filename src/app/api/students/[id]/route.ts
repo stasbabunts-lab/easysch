@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const existing = await getStudent(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, lessonPrice, groupLessonPrice, notes, paymentDetails, balanceAdjustmentKopecks, sendPaymentReminder } = await req.json();
+  const { name, lessonPrice, groupLessonPrice, notes, paymentDetails, balanceAdjustmentKopecks, sendPaymentReminder, isArchived } = await req.json();
 
   // When price changes, compensate balanceAdjustmentKopecks so past lessons
   // are not retroactively affected. Only auto-adjust when the caller isn't
@@ -74,6 +74,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }),
       ...(autoAdjustment !== undefined && { balanceAdjustmentKopecks: autoAdjustment }),
       ...(sendPaymentReminder !== undefined && { sendPaymentReminder }),
+      ...(isArchived !== undefined && {
+        isArchived: Boolean(isArchived),
+        archivedAt: isArchived ? new Date() : null,
+      }),
     },
   });
   return NextResponse.json(student);
@@ -86,6 +90,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const existing = await getStudent(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Permanent delete is only allowed from the archive — it wipes all history.
+  if (!existing.isArchived) {
+    return NextResponse.json(
+      { error: "Спочатку архівуйте клієнта. Остаточне видалення доступне лише з архіву." },
+      { status: 400 }
+    );
+  }
 
   // Student has required relations (Lesson, PaymentRequest) and unique-linked
   // Payments — none cascade on delete, so the bare delete fails on FK constraints.
