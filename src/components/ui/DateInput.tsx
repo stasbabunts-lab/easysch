@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "lucide-react";
 
 // Always-DD.MM.YYYY date field. Replaces native <input type="date">, whose
 // display follows the browser locale (MM/DD/YYYY on en-US). The value emitted to
@@ -53,6 +54,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
   const controlled = value !== undefined;
   const [text, setText] = useState(() => isoToDisplay(value ?? defaultValue ?? ""));
   const editing = useRef(false);
+  const pickerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (controlled && !editing.current) setText(isoToDisplay(value ?? ""));
@@ -60,34 +62,72 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
 
   const canonical = digitsToIso(text.replace(/\D/g, ""));
 
+  const openPicker = () => {
+    const el = pickerRef.current;
+    if (!el || disabled) return;
+    try {
+      el.showPicker();
+    } catch {
+      el.focus();
+      el.click();
+    }
+  };
+
   return (
     <>
-      <Input
-        ref={ref}
-        id={id}
-        type="text"
-        inputMode="numeric"
-        placeholder="ДД.ММ.РРРР"
-        maxLength={10}
-        required={required}
-        disabled={disabled}
-        className={className}
-        value={text}
-        onFocus={() => {
-          editing.current = true;
-        }}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
-          setText(digitsToDisplay(digits));
-          if (digits.length === 8) onChange?.({ target: { value: digitsToIso(digits) } });
-        }}
-        onBlur={() => {
-          editing.current = false;
-          const iso = digitsToIso(text.replace(/\D/g, ""));
-          if (iso) setText(isoToDisplay(iso));
-          onChange?.({ target: { value: iso } });
-        }}
-      />
+      <div className="relative">
+        <Input
+          ref={ref}
+          id={id}
+          type="text"
+          inputMode="numeric"
+          placeholder="ДД.ММ.РРРР"
+          maxLength={10}
+          required={required}
+          disabled={disabled}
+          className={className ? `${className} pr-9` : "pr-9"}
+          value={text}
+          onFocus={() => {
+            editing.current = true;
+          }}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+            setText(digitsToDisplay(digits));
+            if (digits.length === 8) onChange?.({ target: { value: digitsToIso(digits) } });
+          }}
+          onBlur={() => {
+            editing.current = false;
+            const iso = digitsToIso(text.replace(/\D/g, ""));
+            if (iso) setText(isoToDisplay(iso));
+            onChange?.({ target: { value: iso } });
+          }}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          disabled={disabled}
+          onClick={openPicker}
+          aria-label="Відкрити календар"
+          className="absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          <Calendar className="h-4 w-4" />
+        </button>
+        {/* Hidden native date input — only used to render the browser's calendar popup. */}
+        <input
+          ref={pickerRef}
+          type="date"
+          tabIndex={-1}
+          aria-hidden="true"
+          value={canonical}
+          disabled={disabled}
+          onChange={(e) => {
+            const iso = e.target.value;
+            setText(isoToDisplay(iso));
+            onChange?.({ target: { value: iso } });
+          }}
+          className="pointer-events-none absolute right-2 bottom-0 h-0 w-0 opacity-0"
+        />
+      </div>
       {name && <input type="hidden" name={name} value={canonical} />}
     </>
   );
