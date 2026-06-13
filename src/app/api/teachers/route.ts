@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, telegramUsername, phone, paymentMinAmount, paymentMaxAmount, alias, weekStartsMonday } = body;
+  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, lessonNoun, telegramUsername, phone, paymentMinAmount, paymentMaxAmount, alias, weekStartsMonday } = body;
 
   const data: Record<string, string | number | boolean | null> = {};
 
@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest) {
   if (displayName !== undefined) data.displayName = displayName?.trim() || null;
   if (paymentDetails !== undefined) data.paymentDetails = paymentDetails?.trim() || null;
   if (postLessonNote !== undefined) data.postLessonNote = postLessonNote?.trim() || null;
+  if (lessonNoun !== undefined) data.lessonNoun = lessonNoun?.trim() || "заняття";
   if (telegramUsername !== undefined) data.telegramUsername = telegramUsername?.replace(/^@/, "").trim() || null;
   if (phone !== undefined) data.phone = phone?.trim() || null;
   if (paymentMinAmount !== undefined) data.paymentMinAmount = paymentMinAmount === null || paymentMinAmount === "" ? null : Math.round(Number(paymentMinAmount) * 100);
@@ -67,6 +68,7 @@ export async function PATCH(req: NextRequest) {
       phone: true,
       paymentDetails: true,
       postLessonNote: true,
+      lessonNoun: true,
       paymentMinAmount: true,
       paymentMaxAmount: true,
       weekStartsMonday: true,
@@ -97,6 +99,7 @@ export async function GET() {
       phone: true,
       paymentDetails: true,
       postLessonNote: true,
+      lessonNoun: true,
       paymentMinAmount: true,
       paymentMaxAmount: true,
       weekStartsMonday: true,

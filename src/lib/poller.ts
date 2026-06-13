@@ -24,6 +24,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
       name: true,
       paymentDetails: true,
       postLessonNote: true,
+      lessonNoun: true,
     },
   });
   if (!teacher) return 0;
@@ -309,7 +310,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
         slot.student.paymentDetails ?? teacher.paymentDetails ?? "",
         request?.amountTotal,
         teacher.postLessonNote,
-        bankConnected
+        bankConnected,
+        teacher.lessonNoun
       ).catch(() => null);
       await logNotification({
         teacherId,
@@ -366,7 +368,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
           student.paymentDetails ?? teacher.paymentDetails ?? "",
           amount,
           teacher.postLessonNote,
-          bankConnected
+          bankConnected,
+          teacher.lessonNoun
         ).catch(() => null);
         await logNotification({
           teacherId,

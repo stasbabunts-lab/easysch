@@ -26,6 +26,7 @@ model Teacher {
   phone                  String?   // optional phone for public "call" button
   paymentDetails         String?   // free-text: card number, IBAN, phone for Pay, etc.
   postLessonNote         String?   // optional 4th line in post-lesson payment reminder
+  lessonNoun             String    @default("заняття") // word for "lesson" in the post-lesson message (e.g. урок, сесія, візит)
   subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
   weekStartsMonday       Boolean   @default(false) // schedule view: align weeks to Monday, dim past days
   referralSlug           String?   // marketing attribution: Campaign.slug captured at signup

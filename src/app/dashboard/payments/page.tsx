@@ -355,6 +355,7 @@ export default function PaymentsPage() {
   const [msgOpen, setMsgOpen] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState("");
   const [postLessonNote, setPostLessonNote] = useState("");
+  const [lessonNoun, setLessonNoun] = useState("заняття");
   const [savingMsg, setSavingMsg] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -365,6 +366,7 @@ export default function PaymentsPage() {
         if (d) {
           setPaymentDetails(d.paymentDetails ?? "");
           setPostLessonNote(d.postLessonNote ?? "");
+          setLessonNoun(d.lessonNoun ?? "заняття");
         }
         setSettingsLoaded(true);
       })
@@ -378,7 +380,7 @@ export default function PaymentsPage() {
       const res = await fetch("/api/teachers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentDetails, postLessonNote }),
+        body: JSON.stringify({ paymentDetails, postLessonNote, lessonNoun }),
       });
       if (!res.ok) throw new Error();
       toast.success("Повідомлення збережено");
@@ -518,11 +520,21 @@ export default function PaymentsPage() {
 
               {/* 4 messages in order */}
               <div className="space-y-2">
-                {/* Msg 1 — fixed */}
+                {/* Msg 1 — fixed text, but the word for "lesson" is editable */}
                 <div className="flex gap-3 items-start">
                   <span className="text-xs text-muted-foreground font-mono mt-2.5 w-4 shrink-0">1</span>
-                  <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm text-foreground">
-                    Ви завершили заняття на платформі Easy Schedule, будь ласка, сплатіть{" "}
+                  <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm text-foreground leading-7">
+                    Ви завершили{" "}
+                    <input
+                      value={lessonNoun}
+                      onChange={(e) => setLessonNoun(e.target.value)}
+                      onBlur={() => { if (!lessonNoun.trim()) setLessonNoun("заняття"); }}
+                      maxLength={30}
+                      placeholder="заняття"
+                      title="Слово, яким називати ваші зустрічі (напр. урок, сесія, візит)"
+                      className="inline-block w-28 rounded-md border border-input bg-white dark:bg-background px-2 py-0.5 text-sm font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 align-baseline"
+                    />{" "}
+                    на платформі Easy Schedule, будь ласка, сплатіть{" "}
                     <span className="font-semibold text-primary">[сума]</span> на рахунок:
                   </div>
                 </div>

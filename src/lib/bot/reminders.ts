@@ -91,11 +91,12 @@ export async function sendPostLessonPaymentReminder(
   paymentDetails: string,
   amountTotal?: number,
   postLessonNote?: string | null,
-  requireExactSum: boolean = false
+  requireExactSum: boolean = false,
+  lessonNoun: string = "заняття"
 ) {
   const amountStr = amountTotal !== undefined ? formatAmount(amountTotal) : "—";
   const parts = [
-    `Ви завершили заняття на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n${paymentDetails}`,
+    `Ви завершили ${lessonNoun} на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n${paymentDetails}`,
   ];
   // The "exact sum" ask only matters when a bank API auto-matches by the kopeck tail.
   if (requireExactSum) parts.push(`Будь ласка, сплачуйте точну суму, щоб система могла розпізнати ваш платіж`);
