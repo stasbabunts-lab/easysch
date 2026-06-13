@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { kyivToday, kyivDateOffset } from "@/lib/time";
 
 export async function GET(
   _req: NextRequest,
@@ -15,8 +16,8 @@ export async function GET(
 
   if (!teacher) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in28Days = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const today = kyivToday();
+  const in28Days = kyivDateOffset(28);
 
   const slots = await prisma.availabilitySlot.findMany({
     where: {

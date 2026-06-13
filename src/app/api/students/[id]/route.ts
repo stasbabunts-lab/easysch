@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { kyivToday, kyivCurrentTime } from "@/lib/time";
 
 async function getStudent(id: string, teacherId: string) {
   return prisma.student.findFirst({ where: { id, teacherId } });
@@ -41,9 +42,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const newPriceKopecks = Math.round(Number(lessonPrice) * 100);
     const priceDiffKopecks = newPriceKopecks - existing.lessonPrice;
     if (priceDiffKopecks !== 0) {
-      const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      const currentTime = now.toISOString().slice(11, 16);
+      const today = kyivToday();
+      const currentTime = kyivCurrentTime();
       const conductedCount = await prisma.availabilitySlot.count({
         where: {
           studentId: id,

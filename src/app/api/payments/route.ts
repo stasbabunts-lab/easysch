@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatOffset } from "@/lib/payment-offset";
 import { getStudentBalance } from "@/lib/balance";
+import { kyivDateOffset } from "@/lib/time";
 
 // GET /api/payments
 // Returns { clients: ActiveClient[], transactions: TxItem[] }
@@ -19,9 +20,7 @@ export async function GET() {
 
   // "Active" = student has an individual OR group slot in the last 60 days / future,
   // OR has at least one payment.
-  const sixtyDaysAgo = new Date();
-  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-  const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
+  const sixtyDaysAgoStr = kyivDateOffset(-60);
 
   const students = await prisma.student.findMany({
     where: {

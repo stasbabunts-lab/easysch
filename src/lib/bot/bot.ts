@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatAmount } from "@/lib/format";
 import { sendTelegramMessage } from "@/lib/bot/reminders";
 import { getStudentBalance } from "@/lib/balance";
+import { kyivToday, kyivDateOffset } from "@/lib/time";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 // Where teacher support messages are delivered (admin's Telegram chat id).
@@ -243,8 +244,8 @@ bot.command("lessons", async (ctx) => {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const today = kyivToday();
+  const in30Days = kyivDateOffset(30);
   const sections: string[] = [];
 
   for (const [i, student] of students.entries()) {
@@ -307,7 +308,7 @@ bot.command("today", async (ctx) => {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kyivToday();
   const slots = await prisma.availabilitySlot.findMany({
     where: {
       teacherId: teacher.id,
@@ -346,8 +347,8 @@ bot.command("week", async (ctx) => {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in7Days = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const today = kyivToday();
+  const in7Days = kyivDateOffset(6);
 
   const slots = await prisma.availabilitySlot.findMany({
     where: {
@@ -401,9 +402,7 @@ bot.command("debts", async (ctx) => {
     return;
   }
 
-  const sixtyDaysAgo = new Date();
-  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-  const sixtyDaysAgoStr = sixtyDaysAgo.toISOString().slice(0, 10);
+  const sixtyDaysAgoStr = kyivDateOffset(-60);
 
   const students = await prisma.student.findMany({
     where: {
@@ -443,7 +442,7 @@ bot.command("next", async (ctx) => {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kyivToday();
 
   // Find nearest slot across all linked specialists
   type SlotWithMeta = { date: string; startTime: string; endTime: string; specialistName: string };

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { kyivToday, kyivCurrentTime } from "./time";
 
 /**
  * Group lessons only count toward a student's debt from this date onward.
@@ -40,9 +41,8 @@ export interface StudentBalance {
  * GROUP_BILLING_START (priced at groupLessonPrice, falling back to lessonPrice).
  */
 export async function getStudentBalance(s: BillingStudent): Promise<StudentBalance> {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const currentTime = now.toISOString().slice(11, 16);
+  const today = kyivToday();
+  const currentTime = kyivCurrentTime();
   // "Conducted" = a past day, or today with the slot already ended.
   const conducted = {
     OR: [

@@ -12,6 +12,7 @@ import {
 } from "./bot/reminders";
 import { logNotification } from "./bot/notification-log";
 import { formatAmount } from "./payment-offset";
+import { kyivNow, kyivToday } from "./time";
 
 export async function pollPayments(teacherId: string): Promise<number> {
   const teacher = await prisma.teacher.findUnique({
@@ -137,11 +138,13 @@ export async function pollPayments(teacherId: string): Promise<number> {
   // ── Lesson reminders ──────────────────────────────────────────────
   const teacherWindowsMin = parseMinutes(teacher.teacherReminderMinutes);
   const studentWindowsMin = parseMinutes(teacher.studentReminderMinutes);
-  const now = Date.now();
+  // Kyiv wall-clock frame: scheduledAt below is wall-clock-in-UTC, so "now" must
+  // match it (not real UTC) for reminder timing to fire at the right moment.
+  const now = kyivNow().getTime();
 
   const maxWindowMs = Math.max(...teacherWindowsMin, ...studentWindowsMin, 60) * 60 * 1000;
   const windowEnd = new Date(now + maxWindowMs + 10 * 60 * 1000);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kyivToday();
 
   // ── Individual-slot reminders ──────────────────────────────────────────
   const upcomingSlots = await prisma.availabilitySlot.findMany({
@@ -159,7 +162,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
   for (const slot of upcomingSlots) {
     if (!slot.student) continue;
 
-    const scheduledAt = new Date(`${slot.date}T${slot.startTime}:00`);
+    const scheduledAt = new Date(`${slot.date}T${slot.startTime}:00Z`);
     const msUntil = scheduledAt.getTime() - now;
     if (msUntil < 0) continue;
 
@@ -213,7 +216,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
   });
 
   for (const slot of upcomingGroupSlots) {
-    const scheduledAt = new Date(`${slot.date}T${slot.startTime}:00`);
+    const scheduledAt = new Date(`${slot.date}T${slot.startTime}:00Z`);
     const msUntil = scheduledAt.getTime() - now;
     if (msUntil < 0) continue;
 
@@ -291,7 +294,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
       if (!slot.student?.telegramId) continue;
       if (!slot.student.sendPaymentReminder) continue;
 
-      const slotEnd = new Date(`${slot.date}T${slot.endTime}:00`);
+      const slotEnd = new Date(`${slot.date}T${slot.endTime}:00Z`);
       if (slotEnd.getTime() > now || slotEnd.getTime() < threeHoursAgo.getTime()) continue;
 
       const lesson = slot.lessons[0];
@@ -343,7 +346,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
     });
 
     for (const slot of justFinishedGroupSlots) {
-      const slotEnd = new Date(`${slot.date}T${slot.endTime}:00`);
+      const slotEnd = new Date(`${slot.date}T${slot.endTime}:00Z`);
       if (slotEnd.getTime() > now || slotEnd.getTime() < threeHoursAgo.getTime()) continue;
 
       for (const { student } of slot.groupStudents) {

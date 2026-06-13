@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
 import { getStudentBalance, GROUP_BILLING_START } from "@/lib/balance";
+import { kyivToday, kyivCurrentTime } from "@/lib/time";
 import { StudentActions } from "@/components/students/StudentActions";
 import { PriceField, GroupPriceField, NotesField, PaymentDetailsField } from "@/components/students/StudentEditableFields";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
@@ -21,9 +22,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   if (!session) return null;
   const { id } = await params;
 
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const currentTime = now.toISOString().slice(11, 16);
+  const today = kyivToday();
+  const currentTime = kyivCurrentTime();
 
   const [student, teacher] = await Promise.all([
     prisma.student.findFirst({

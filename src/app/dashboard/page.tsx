@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/payment-offset";
+import { kyivNow } from "@/lib/time";
 import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell } from "lucide-react";
 import { LABELS } from "@/lib/labels";
 import Link from "next/link";
@@ -94,7 +95,8 @@ export default async function DashboardPage() {
   if (!session) return null;
 
   const teacherId = session.user.id;
-  const now = new Date();
+  // Kyiv wall-clock frame (matches slot strings and scheduledAt). See lib/time.ts.
+  const now = kyivNow();
 
   const today = now.toISOString().slice(0, 10);
   const currentTime = now.toISOString().slice(11, 16);

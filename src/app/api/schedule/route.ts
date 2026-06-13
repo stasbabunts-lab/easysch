@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { buildWeeklyInstances } from "@/lib/recurring";
+import { kyivDateOffset } from "@/lib/time";
 
 // Recurring series are auto-extended by the cron poller (extendExpiringSeries in
 // pollPayments, every 5 min for every teacher) — not on schedule load, so the
@@ -12,9 +13,8 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const historyDays = 60;
-  const startDate = daysFromNow(-historyDays);
-  const in90Days = daysFromNow(90);
+  const startDate = kyivDateOffset(-60);
+  const in90Days = kyivDateOffset(90);
 
   const slots = await prisma.availabilitySlot.findMany({
     where: {
@@ -107,10 +107,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function daysFromNow(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
