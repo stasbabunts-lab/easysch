@@ -99,6 +99,14 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
           disabled={disabled}
           className={className ? `${className} pr-9` : "pr-9"}
           value={text}
+          onPointerDown={(e) => {
+            // Touch/pen: open the device's native date picker instead of the
+            // keyboard. Mouse: leave normal focus/typing (+ wheel stepping) alone.
+            if (e.pointerType !== "mouse") {
+              e.preventDefault();
+              openPicker();
+            }
+          }}
           onChange={(e) => {
             const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
             setText(digitsToDisplay(digits));
