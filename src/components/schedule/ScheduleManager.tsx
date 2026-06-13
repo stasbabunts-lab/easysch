@@ -80,8 +80,14 @@ interface Props {
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 void WEEK_MS;
 
+// Local calendar date "YYYY-MM-DD". Must NOT use toISOString() — that serializes
+// in UTC, so in UTC+ timezones (Ukraine) the early-morning hours shift the date
+// back a day, which e.g. turned a Monday-aligned week start into Sunday.
 function isoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function addDays(date: Date, days: number) {
