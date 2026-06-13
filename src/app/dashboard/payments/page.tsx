@@ -479,10 +479,13 @@ export default function PaymentsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={() => poll()} disabled={polling}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${polling ? "animate-spin" : ""}`} />
-            Перевірити
-          </Button>
+          {/* Force an immediate bank poll — only meaningful with a bank API connected */}
+          {bankConnected && (
+            <Button size="sm" variant="outline" onClick={() => poll()} disabled={polling}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${polling ? "animate-spin" : ""}`} />
+              Перевірити
+            </Button>
+          )}
           <GuideButton />
         </div>
       </div>
