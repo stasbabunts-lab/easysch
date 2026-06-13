@@ -25,7 +25,11 @@ export async function POST(req: NextRequest) {
   }
 
   const base = Math.round(Number(amountBase) * 100);
-  const amountTotal = base + student.paymentOffset;
+  // The offset "tail" exists only to auto-match incoming bank payments. With no
+  // bank connected there's nothing to match, so keep the requested sum round.
+  const bankConnected =
+    (await prisma.bankAccount.count({ where: { teacherId: session.user.id, isActive: true } })) > 0;
+  const amountTotal = bankConnected ? base + student.paymentOffset : base;
 
   const request = await prisma.paymentRequest.create({
     data: {

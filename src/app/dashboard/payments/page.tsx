@@ -41,6 +41,7 @@ interface TxItem {
 interface PaymentsData {
   clients: ActiveClient[];
   transactions: TxItem[];
+  bankConnected: boolean;
 }
 
 // ── Inline balance editor ──────────────────────────────────────────────────────
@@ -167,14 +168,15 @@ function BalanceCell({ client, onSaved }: BalanceCellProps) {
 
 // ── Inline price cell ──────────────────────────────────────────────────────────
 
-function PriceCell({ client, onSaved }: { client: ActiveClient; onSaved: (updated: ActiveClient) => void }) {
+function PriceCell({ client, bankConnected, onSaved }: { client: ActiveClient; bankConnected: boolean; onSaved: (updated: ActiveClient) => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Display: lessonPrice + offset kopecks (unique sum)
-  const displayKopecks = client.lessonPrice + client.offset;
+  // With a bank connected: lessonPrice + offset kopecks (unique sum for auto-match).
+  // Without a bank: keep it round — the offset tail serves no purpose.
+  const displayKopecks = bankConnected ? client.lessonPrice + client.offset : client.lessonPrice;
 
   function startEdit() {
     // Edit only whole part (no offset)
@@ -345,7 +347,7 @@ function RequestCell({ client, onSaved }: { client: ActiveClient; onSaved: (upda
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
-  const [data, setData] = useState<PaymentsData>({ clients: [], transactions: [] });
+  const [data, setData] = useState<PaymentsData>({ clients: [], transactions: [], bankConnected: false });
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
 
@@ -461,7 +463,7 @@ export default function PaymentsPage() {
     }
   }
 
-  const { clients, transactions } = data;
+  const { clients, transactions, bankConnected } = data;
 
   return (
     <div className="space-y-6">
@@ -600,7 +602,7 @@ export default function PaymentsPage() {
                     <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
                       <div>
                         <p className="mb-1">Ціна ✎</p>
-                        <PriceCell client={c} onSaved={updateClient} />
+                        <PriceCell client={c} bankConnected={bankConnected} onSaved={updateClient} />
                       </div>
                       <div>
                         <p className="mb-1">Баланс ✎</p>
@@ -637,7 +639,7 @@ export default function PaymentsPage() {
                             {c.name}
                           </Link>
                         </td>
-                        <td className="px-4 py-3"><PriceCell client={c} onSaved={updateClient} /></td>
+                        <td className="px-4 py-3"><PriceCell client={c} bankConnected={bankConnected} onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><BalanceCell client={c} onSaved={updateClient} /></td>
                         <td className="px-4 py-3"><RequestCell client={c} onSaved={updateClient} /></td>
                       </tr>

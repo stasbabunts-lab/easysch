@@ -26,7 +26,7 @@ interface Student {
   notes?: string | null;
 }
 
-export function StudentActions({ student, hasPaymentDetails }: { student: Student; hasPaymentDetails: boolean }) {
+export function StudentActions({ student, hasPaymentDetails, bankConnected }: { student: Student; hasPaymentDetails: boolean; bankConnected: boolean }) {
   const router = useRouter();
   const [payDialog, setPayDialog] = useState(false);
   const [lessonDialog, setLessonDialog] = useState(false);
@@ -167,9 +167,11 @@ export function StudentActions({ student, hasPaymentDetails }: { student: Studen
             <div className="space-y-2">
               <Label>Сума</Label>
               <Input name="amount" type="number" defaultValue={student.lessonPrice / 100} min="1" step="1" required />
-              <p className="text-xs text-muted-foreground">
-                Клієнту призначається унікальна сума (+{student.paymentOffset} коп) для автоматичного розпізнавання.
-              </p>
+              {bankConnected && (
+                <p className="text-xs text-muted-foreground">
+                  Клієнту призначається унікальна сума (+{student.paymentOffset} коп) для автоматичного розпізнавання.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Коментар</Label>

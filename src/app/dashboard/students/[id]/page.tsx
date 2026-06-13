@@ -63,6 +63,10 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound();
 
+  // No bank API connected → the offset "tail" is pointless; keep sums round.
+  const bankConnected =
+    (await prisma.bankAccount.count({ where: { teacherId: session.user.id, isActive: true } })) > 0;
+
   // Conducted group lessons (billed since the cutoff) — student.slots only holds
   // individual slots, so fetch group slots separately to list them alongside.
   const groupSlots = await prisma.availabilitySlot.findMany({
@@ -120,7 +124,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
         </div>
-        <StudentActions student={student} hasPaymentDetails={!!student.paymentDetails || !!teacher?.paymentDetails} />
+        <StudentActions student={student} hasPaymentDetails={!!student.paymentDetails || !!teacher?.paymentDetails} bankConnected={bankConnected} />
       </div>
 
       {/* Notes */}

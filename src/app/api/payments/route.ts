@@ -12,6 +12,11 @@ export async function GET() {
 
   const teacherId = session.user.id;
 
+  // Whether the teacher has a bank API connected. When not, the offset "tail" is
+  // pointless (nothing to auto-match), so amounts are shown round everywhere.
+  const bankConnected =
+    (await prisma.bankAccount.count({ where: { teacherId, isActive: true } })) > 0;
+
   // "Active" = student has an individual OR group slot in the last 60 days / future,
   // OR has at least one payment.
   const sixtyDaysAgo = new Date();
@@ -87,5 +92,5 @@ export async function GET() {
     isIgnored: p.isIgnored,
   }));
 
-  return NextResponse.json({ clients, transactions });
+  return NextResponse.json({ clients, transactions, bankConnected });
 }
