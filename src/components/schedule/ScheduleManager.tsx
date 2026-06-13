@@ -669,7 +669,7 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
                 className="h-4 w-4 rounded border-gray-300" />
               <div>
                 <p className="text-sm font-medium">Щотижнево</p>
-                <p className="text-xs text-muted-foreground">Створити на 3 місяці вперед</p>
+                <p className="text-xs text-muted-foreground">Повторюється щотижня — серія продовжується автоматично</p>
               </div>
               <RefreshCw className={`h-4 w-4 ml-auto ${newSlot.isRecurring ? "text-emerald-500" : "text-muted-foreground/40"}`} />
             </label>
@@ -703,7 +703,7 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Буде створено <strong>13 щотижневих занять</strong> (≈3 місяці) починаючи з цієї дати.
+                  Заняття стане <strong>щотижневим</strong> і повторюватиметься регулярно — серія продовжується автоматично.
                 </p>
               )}
               <div className="flex gap-2">
