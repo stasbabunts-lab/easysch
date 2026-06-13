@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TimeInput } from "@/components/ui/TimeInput";
-import { DateInput } from "@/components/ui/DateInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -15,7 +13,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2, CreditCard, CalendarPlus, AlertCircle } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, CreditCard, AlertCircle } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 
 interface Student {
@@ -29,7 +27,6 @@ interface Student {
 export function StudentActions({ student, hasPaymentDetails, bankConnected }: { student: Student; hasPaymentDetails: boolean; bankConnected: boolean }) {
   const router = useRouter();
   const [payDialog, setPayDialog] = useState(false);
-  const [lessonDialog, setLessonDialog] = useState(false);
   const [editDialog, setEditDialog] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -55,33 +52,6 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
       router.refresh();
     } else {
       toast.error("Помилка створення запиту");
-    }
-  }
-
-  async function createLesson(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const date = fd.get("date") as string;
-    const time = fd.get("time") as string;
-    const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
-    const res = await fetch("/api/lessons", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentId: student.id,
-        scheduledAt,
-        durationMin: fd.get("duration"),
-        notes: fd.get("notes"),
-      }),
-    });
-    setLoading(false);
-    if (res.ok) {
-      toast.success("Заняття заплановано");
-      setLessonDialog(false);
-      router.refresh();
-    } else {
-      toast.error("Помилка");
     }
   }
 
@@ -119,8 +89,6 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
     }
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
-
   return (
     <div className="flex gap-2 shrink-0">
       <Button
@@ -138,9 +106,6 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
         {!hasPaymentDetails && <AlertCircle className="h-4 w-4 mr-2 text-amber-500" />}
         {hasPaymentDetails && <CreditCard className="h-4 w-4 mr-2" />}
         Запросити оплату
-      </Button>
-      <Button size="sm" onClick={() => setLessonDialog(true)}>
-        <CalendarPlus className="h-4 w-4 mr-2" /> Заняття
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button size="sm" variant="ghost" />}>
@@ -179,34 +144,6 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Створюємо..." : "Створити запит"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Lesson dialog */}
-      <Dialog open={lessonDialog} onOpenChange={setLessonDialog}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Запланувати заняття</DialogTitle></DialogHeader>
-          <form onSubmit={createLesson} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Дата</Label>
-              <DateInput name="date" defaultValue={todayStr} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Час</Label>
-              <TimeInput name="time" defaultValue="10:00" required />
-            </div>
-            <div className="space-y-2">
-              <Label>Тривалість (хв)</Label>
-              <Input name="duration" type="number" defaultValue="60" min="15" step="5" required />
-            </div>
-            <div className="space-y-2">
-              <Label>Нотатки</Label>
-              <Textarea name="notes" rows={2} placeholder="Тема заняття..." />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Створюємо..." : "Запланувати"}
             </Button>
           </form>
         </DialogContent>
