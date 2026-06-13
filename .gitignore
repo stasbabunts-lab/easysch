@@ -56,3 +56,9 @@ dev.log
 
 # claude code local files
 /.claude/
+
+# telegram channel finder — login session + scraped output
+/scripts/*.session
+/scripts/*.session-journal
+/scripts/.tg_finder*
+/scripts/telegram_channels.csv
