@@ -53,12 +53,24 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
 ) {
   const controlled = value !== undefined;
   const [text, setText] = useState(() => isoToDisplay(value ?? defaultValue ?? ""));
-  const editing = useRef(false);
+  // Last ISO we emitted upward. When `value` comes back equal to it, it's our own
+  // change echoing — leave the in-progress text alone (don't clobber typing). When it
+  // differs, it's an *external* change (mouse-wheel stepping, calendar pick) and we
+  // reflect it in the field even while the input is focused for typing.
+  const lastEmitted = useRef(value);
   const pickerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (controlled && !editing.current) setText(isoToDisplay(value ?? ""));
+    if (!controlled) return;
+    if (value === lastEmitted.current) return;
+    lastEmitted.current = value;
+    setText(isoToDisplay(value ?? ""));
   }, [value, controlled]);
+
+  const emit = (iso: string) => {
+    lastEmitted.current = iso;
+    onChange?.({ target: { value: iso } });
+  };
 
   const canonical = digitsToIso(text.replace(/\D/g, ""));
 
@@ -87,19 +99,15 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
           disabled={disabled}
           className={className ? `${className} pr-9` : "pr-9"}
           value={text}
-          onFocus={() => {
-            editing.current = true;
-          }}
           onChange={(e) => {
             const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
             setText(digitsToDisplay(digits));
-            if (digits.length === 8) onChange?.({ target: { value: digitsToIso(digits) } });
+            if (digits.length === 8) emit(digitsToIso(digits));
           }}
           onBlur={() => {
-            editing.current = false;
             const iso = digitsToIso(text.replace(/\D/g, ""));
             if (iso) setText(isoToDisplay(iso));
-            onChange?.({ target: { value: iso } });
+            emit(iso);
           }}
         />
         <button
@@ -123,7 +131,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
           onChange={(e) => {
             const iso = e.target.value;
             setText(isoToDisplay(iso));
-            onChange?.({ target: { value: iso } });
+            emit(iso);
           }}
           className="pointer-events-none absolute right-2 bottom-0 h-0 w-0 opacity-0"
         />

@@ -35,11 +35,21 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function T
 ) {
   const controlled = value !== undefined;
   const [text, setText] = useState(() => value ?? defaultValue ?? "");
-  const editing = useRef(false);
+  // See DateInput: echoes of our own change are ignored; external changes
+  // (mouse-wheel stepping) are reflected even while the field is focused.
+  const lastEmitted = useRef(value);
 
   useEffect(() => {
-    if (controlled && !editing.current) setText(value ?? "");
+    if (!controlled) return;
+    if (value === lastEmitted.current) return;
+    lastEmitted.current = value;
+    setText(value ?? "");
   }, [value, controlled]);
+
+  const emit = (v: string) => {
+    lastEmitted.current = v;
+    onChange?.({ target: { value: v } });
+  };
 
   const canonical = /^\d{2}:\d{2}$/.test(text) ? text : normalize(text.replace(/\D/g, ""));
 
@@ -56,19 +66,15 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function T
         disabled={disabled}
         className={className}
         value={text}
-        onFocus={() => {
-          editing.current = true;
-        }}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
           setText(toDisplay(digits));
-          if (digits.length === 4) onChange?.({ target: { value: normalize(digits) } });
+          if (digits.length === 4) emit(normalize(digits));
         }}
         onBlur={() => {
-          editing.current = false;
           const v = normalize(text.replace(/\D/g, ""));
           setText(v);
-          onChange?.({ target: { value: v } });
+          emit(v);
         }}
       />
       {name && <input type="hidden" name={name} value={canonical} />}
