@@ -27,10 +27,14 @@ interface TimeInputProps {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  // When set, scrolling the mouse wheel over the field steps the time by this
+  // many minutes (e.g. 60 = one hour), wrapping at midnight. Opt-in so other
+  // usages keep the plain typing-only behaviour.
+  wheelStepMinutes?: number;
 }
 
 export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function TimeInput(
-  { value, defaultValue, onChange, name, id, required, disabled, className },
+  { value, defaultValue, onChange, name, id, required, disabled, className, wheelStepMinutes },
   ref
 ) {
   const controlled = value !== undefined;
@@ -38,6 +42,7 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function T
   // See DateInput: echoes of our own change are ignored; external changes
   // (mouse-wheel stepping) are reflected even while the field is focused.
   const lastEmitted = useRef(value);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!controlled) return;
@@ -53,8 +58,35 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function T
 
   const canonical = /^\d{2}:\d{2}$/.test(text) ? text : normalize(text.replace(/\D/g, ""));
 
+  // Keep the latest committed time in a ref so the native wheel listener
+  // (attached once) always steps from the current value.
+  const canonicalRef = useRef(canonical);
+  canonicalRef.current = canonical;
+
+  // Native non-passive wheel listener — React's synthetic onWheel is passive at
+  // the root, so preventDefault (to stop the page scrolling) wouldn't work there.
+  useEffect(() => {
+    if (!wheelStepMinutes || disabled) return;
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const base = /^\d{2}:\d{2}$/.test(canonicalRef.current) ? canonicalRef.current : "00:00";
+      const [h, m] = base.split(":").map(Number);
+      let total = h * 60 + m + (e.deltaY < 0 ? 1 : -1) * wheelStepMinutes;
+      total = ((total % 1440) + 1440) % 1440;
+      const v = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+      setText(v);
+      emit(v);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // emit/setText identities are stable for the lifetime of these deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wheelStepMinutes, disabled]);
+
   return (
-    <>
+    <div ref={wrapRef}>
       <Input
         ref={ref}
         id={id}
@@ -65,6 +97,7 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function T
         required={required}
         disabled={disabled}
         className={className}
+        title={wheelStepMinutes ? "Прокрутіть колесом миші, щоб змінити час" : undefined}
         value={text}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
@@ -78,6 +111,6 @@ export const TimeInput = forwardRef<HTMLInputElement, TimeInputProps>(function T
         }}
       />
       {name && <input type="hidden" name={name} value={canonical} />}
-    </>
+    </div>
   );
 });

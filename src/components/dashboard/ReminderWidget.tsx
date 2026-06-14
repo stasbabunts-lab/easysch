@@ -113,7 +113,7 @@ export function ReminderWidget({
             <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="w-20 shrink-0">
-            <TimeInput value={time} onChange={(e) => setTime(e.target.value)} />
+            <TimeInput value={time} onChange={(e) => setTime(e.target.value)} wheelStepMinutes={60} />
           </div>
           <Button
             type="button"

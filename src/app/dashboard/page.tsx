@@ -216,7 +216,7 @@ export default async function DashboardPage() {
           <CardHeader className="pb-3 border-b border-border/50">
             <div className="flex items-center gap-2">
               <Bell className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Нагадування</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Нагадування (в боті)</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="pt-4">
