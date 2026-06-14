@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { pollPayments } from "@/lib/poller";
+import { dispatchDueReminders } from "@/lib/reminders-personal";
 
 // Called by server cron every 5 minutes:
 // curl -s -X POST https://easy-sch.com/api/cron \
@@ -26,5 +27,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, teachers: teachers.length, matched: totalMatched });
+  let remindersSent = 0;
+  try {
+    remindersSent = await dispatchDueReminders();
+  } catch {
+    // Reminder dispatch must never break the payment-polling cron run
+  }
+
+  return NextResponse.json({
+    ok: true,
+    teachers: teachers.length,
+    matched: totalMatched,
+    remindersSent,
+  });
 }

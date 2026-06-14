@@ -38,6 +38,21 @@ model Teacher {
   bankAccounts         BankAccount[]
   notificationLogs     NotificationLog[]
   subscriptionPayments SubscriptionPayment[]
+  reminders            Reminder[]
+}
+
+// Personal Telegram reminder the teacher sets for themselves ("remind me of X
+// at time T"). Delivered to teacher.telegramChatId by the cron dispatcher.
+model Reminder {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  text      String
+  remindAt  DateTime // Kyiv wall-clock stored as UTC (like Lesson.scheduledAt)
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([sent, remindAt])
 }
 
 // Marketing campaign / referral link. Share easy-sch.com/r/<slug>; clicks are

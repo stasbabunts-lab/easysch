@@ -8,6 +8,7 @@ import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell } from "lucide
 import { LABELS } from "@/lib/labels";
 import Link from "next/link";
 import { NotificationLog } from "@/components/dashboard/NotificationLog";
+import { ReminderWidget } from "@/components/dashboard/ReminderWidget";
 import { GuideButton } from "@/components/layout/GuideButton";
 
 // Lesson.scheduledAt stores the slot's wall-clock time as UTC (built from the
@@ -101,10 +102,10 @@ export default async function DashboardPage() {
   const today = now.toISOString().slice(0, 10);
   const currentTime = now.toISOString().slice(11, 16);
 
-  const [teacher, upcomingLessons, studentCount, studentsForDebt, recentPayments, recentNotifs] = await Promise.all([
+  const [teacher, upcomingLessons, studentCount, studentsForDebt, reminders, recentNotifs] = await Promise.all([
     prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: { subscriptionExpiresAt: true },
+      select: { subscriptionExpiresAt: true, telegramChatId: true },
     }),
     prisma.lesson.findMany({
       where: { teacherId, scheduledAt: { gte: now }, status: { not: "CANCELLED" } },
@@ -132,11 +133,10 @@ export default async function DashboardPage() {
         },
       },
     }),
-    prisma.payment.findMany({
-      where: { teacherId },
-      include: { student: { select: { name: true } } },
-      orderBy: { confirmedAt: "desc" },
-      take: 5,
+    prisma.reminder.findMany({
+      where: { teacherId, sent: false },
+      orderBy: { remindAt: "asc" },
+      select: { id: true, text: true, remindAt: true },
     }),
     prisma.notificationLog.findMany({
       where: { teacherId },
@@ -214,29 +214,16 @@ export default async function DashboardPage() {
 
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3 border-b border-border/50">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Останні оплати</CardTitle>
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Нагадування</CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="pt-4">
-            {recentPayments.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Оплат поки немає</p>
-            ) : (
-              <div className="space-y-1">
-                {recentPayments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between py-2.5 px-1 border-b border-border/40 last:border-0">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 font-semibold text-xs shrink-0">
-                        {p.student?.name?.charAt(0) ?? "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{p.student?.name ?? "—"}</p>
-                        <p className="text-xs text-muted-foreground">{p.confirmedAt.toLocaleDateString("uk-UA")}</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-semibold text-emerald-600 shrink-0 ml-2">+{formatAmount(p.amountReceived)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ReminderWidget
+              telegramLinked={!!teacher?.telegramChatId}
+              initial={reminders.map((r) => ({ ...r, remindAt: r.remindAt.toISOString() }))}
+            />
           </CardContent>
         </Card>
       </div>
