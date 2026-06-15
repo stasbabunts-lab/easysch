@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>targetboard — доска целей</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #1f232c;
+    --line: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8b93a3;
+    --accent: #4f8cff;
+    --high: #ff5d6c;
+    --normal: #4f8cff;
+    --low: #8b93a3;
+    --done: #3ecf8e;
+    --radius: 12px;
+    --card-gap: 18px;
+    --card-w: 290px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(15,17,21,.85); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .5px; flex: 1 1 auto; }
+  h1 span { color: var(--accent); }
+  .head-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .head-right { flex: 1 1 auto; display: flex; justify-content: flex-end; }
+
+  main { padding: 18px 22px 60px; }
+
+  /* всё по центру; при добавлении раздвигается вширь и переносится на новый ряд */
+  #board { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 24px; }
+
+  /* перетащенный блок «откалывается» от авто-раскладки и держит свою позицию */
+  .floating { position: absolute; margin: 0 !important; }
+
+  /* плавающая цель внутри категории сохраняет ширину карточки */
+  .card.floating { width: var(--card-w); }
+
+  .grip {
+    cursor: grab; color: var(--muted); font-size: 15px; line-height: 1;
+    padding: 2px 4px; user-select: none; flex-shrink: 0; touch-action: none;
+  }
+  .grip:hover { color: var(--text); }
+  .grip:active { cursor: grabbing; }
+
+  .btn {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    padding: 9px 15px; border-radius: var(--radius); cursor: pointer; font-size: 14px;
+    white-space: nowrap; transition: .15s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.ghost { background: transparent; }
+  .btn.sm { padding: 6px 11px; font-size: 13px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  input, textarea { font-family: inherit; color: var(--text); background: transparent; border: 0; outline: none; }
+
+  /* ---- категория-контейнер: ширина по содержимому (1 или 2 столбца) ---- */
+  .category {
+    flex: 0 0 auto;
+    background: rgba(255,255,255,.018);
+    border: 1px solid var(--line); border-radius: 16px;
+    padding: 14px 18px 18px; margin: 0;
+  }
+  .category-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .cat-title {
+    font-size: 18px; font-weight: 700; flex: 1 1 auto; min-width: 90px;
+    padding: 4px 2px; border-bottom: 1px solid transparent; color: var(--accent);
+  }
+  .cat-title:focus { border-bottom-color: var(--line); }
+  .cat-title::placeholder { color: var(--muted); }
+
+  /* ---- доска карточек внутри категории (кол-во столбцов задаётся в JS) ---- */
+  .cat-board { position: relative; display: grid; gap: var(--card-gap); align-items: start; }
+
+  .add-card-tile {
+    grid-column: 1 / -1; min-height: 56px;
+    border: 1px dashed var(--line); border-radius: var(--radius);
+    background: transparent; color: var(--muted); cursor: pointer; font-size: 26px;
+    display: grid; place-items: center; transition: .15s;
+  }
+  .add-card-tile:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* одиночная задача вне категорий */
+  .loose-holder { width: var(--card-w); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 4px solid var(--normal);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  .card-body { padding: 12px 12px 8px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+
+  .main-input { flex: 1; font-size: 20px; font-weight: 600; padding: 2px 0; min-width: 0; }
+  .main-input::placeholder { color: var(--muted); font-weight: 500; }
+
+  .color-dot {
+    width: 20px; height: 20px; border-radius: 6px; cursor: pointer; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,.15);
+  }
+  .color-pop {
+    position: fixed; z-index: 50; display: flex; gap: 6px; padding: 8px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  }
+  .color-sw { width: 24px; height: 24px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .color-sw.sel { border-color: #fff; }
+
+  /* шкала основной задачи — на 10% крупнее, чем у подзадач */
+  .sat-lg .sat-range { height: 8px; }
+  .sat-lg .sat-range::-webkit-slider-thumb { width: 18px; height: 18px; }
+  .sat-lg .sat-range::-moz-range-thumb { width: 18px; height: 18px; }
+  .sat-lg .sat-val { font-size: 14px; min-width: 44px; }
+  .icon-btn { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 17px; padding: 2px 4px; border-radius: 6px; flex-shrink: 0; }
+  .icon-btn:hover { color: var(--high); background: var(--panel-2); }
+
+  /* ---- ползунок удовлетворённости ---- */
+  .sat { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .sat-range {
+    -webkit-appearance: none; appearance: none;
+    flex: 1; height: 7px; border-radius: 4px; cursor: pointer; background: var(--line);
+  }
+  .sat-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; border: 2px solid var(--accent); cursor: pointer;
+  }
+  .sat-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); cursor: pointer; }
+  .sat-val { font-size: 13px; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ---- подзадачи: отступ + шкала под текстом ---- */
+  .subs { border-top: 1px solid var(--line); padding: 18px 12px 4px; }
+  .sub { margin-bottom: 18px; padding-left: 12px; border-left: 2px solid var(--line); }
+  .sub:last-child { margin-bottom: 4px; }
+  .sub-input { flex: 1; font-size: 16px; padding: 1px 0; min-width: 0; }
+  .sub-input::placeholder { color: var(--muted); }
+  .sub .sat { margin: 6px 0 0; }
+
+  .add-sub { padding: 2px 12px 14px; }
+  .add-sub button {
+    width: 100%; border: 1px dashed var(--line); border-radius: 8px;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 18px; line-height: 1; padding: 7px 0; transition: .15s;
+  }
+  .add-sub button:hover { color: var(--accent); border-color: var(--accent); }
+
+  .empty { width: 100%; text-align: center; color: var(--muted); padding: 50px 20px; }
+  .empty .big { font-size: 42px; margin-bottom: 12px; }
+
+  /* ---- левая колонка: напоминания + задачи (слева вверху под логотипом) ---- */
+  #left-col {
+    position: fixed; left: 22px; top: 72px; width: var(--card-w); z-index: 20;
+    display: flex; flex-direction: column; gap: 16px;
+    max-height: calc(100vh - 92px); overflow-y: auto; padding-bottom: 8px;
+  }
+  #reminders, #tasks {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px;
+  }
+  .rm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+  .rm-soon { font-size: 11px; font-weight: 500; color: var(--muted); }
+
+  .rm-top { display: flex; align-items: center; gap: 12px; }
+  .rm-clock { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 1px; }
+  .rm-h, .rm-m { cursor: ns-resize; padding: 2px 5px; border-radius: 7px; touch-action: none; }
+  .rm-h:hover, .rm-m:hover { background: var(--panel-2); color: var(--accent); }
+  .rm-colon { opacity: .55; }
+  .rm-date { cursor: pointer; padding: 4px 8px; border-radius: 9px; line-height: 1.25; flex: 1; touch-action: none; }
+  .rm-date:hover { background: var(--panel-2); }
+  .rm-dow { font-size: 15px; font-weight: 600; text-transform: capitalize; }
+  .rm-full { font-size: 12px; color: var(--muted); }
+
+  .rm-text {
+    width: 100%; margin-top: 12px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 11px; font-size: 14px;
+  }
+  .rm-text:focus { border-color: var(--accent); }
+  .rm-add { width: 100%; margin-top: 10px; }
+
+  .rm-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .rm-item { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; }
+  .rm-item .t { flex: 1; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rm-item .when { font-size: 12px; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .rm-empty { font-size: 12px; color: var(--muted); text-align: center; padding: 6px; }
+
+  /* календарь */
+  .rm-cal { margin-top: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 10px; }
+  .rm-cal.hidden { display: none; }
+  .rm-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .rm-cal-head .icon-btn { color: var(--text); font-size: 18px; }
+  .rm-cal-head .icon-btn:hover { color: var(--accent); background: var(--line); }
+  .rm-cal-title { font-weight: 600; font-size: 14px; text-transform: capitalize; }
+  .rm-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .rm-grid .cell { text-align: center; padding: 6px 0; font-size: 13px; border-radius: 6px; }
+  .rm-grid .dow { color: var(--muted); font-size: 11px; padding: 2px 0; }
+  .rm-grid .day { cursor: pointer; }
+  .rm-grid .day:hover { background: var(--line); }
+  .rm-grid .day.today { box-shadow: inset 0 0 0 1px var(--accent); }
+  .rm-grid .day.sel { background: var(--accent); color: #fff; }
+
+  /* ---- блок задач ---- */
+  .tt-tabs { display: flex; gap: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 12px; }
+  .tt-tab { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 6px 10px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+  .tt-tab.active { background: var(--accent); color: #fff; }
+  .tt-input {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 11px; font-size: 14px; margin-bottom: 12px;
+  }
+  .tt-input:focus { border-color: var(--accent); }
+  .tt-list { display: flex; flex-direction: column; gap: 8px; }
+  .tt-item { display: flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; }
+  .tt-item .t { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tt-item.done .t { color: var(--muted); text-decoration: line-through; }
+  .tt-alarm { color: #fff; display: grid; place-items: center; }
+  .tt-alarm svg { display: block; pointer-events: none; }
+  .tt-alarm:hover { color: var(--accent) !important; background: var(--line) !important; }
+  .tt-check {
+    width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--line);
+    cursor: pointer; flex-shrink: 0; display: grid; place-items: center; transition: .15s;
+  }
+  .tt-check.checked { background: var(--done); border-color: var(--done); }
+  .tt-check.checked::after { content: "✓"; color: #06281a; font-size: 13px; font-weight: 700; }
+  .tt-empty { font-size: 12px; color: var(--muted); text-align: center; padding: 6px; }
+
+  /* кнопки −/+ для времени: по умолчанию скрыты (десктоп пользуется колесом) */
+  .rm-steppers { display: none; }
+
+  /* ================= МОБИЛЬНАЯ РАСКЛАДКА (≤ 700px) ================= */
+  /* всё ниже включается только на узких экранах; на десктопе не действует */
+  @media (max-width: 700px) {
+    /* левая колонка — в обычный поток, на всю ширину (не перекрывает доску) */
+    #left-col {
+      position: static; width: auto; max-height: none; overflow: visible;
+      left: auto; top: auto; padding: 12px 12px 0;
+    }
+    main { padding: 14px 12px 48px; }
+
+    /* мобильная раскладка не зависит от перетаскиваний — всё «плавающее» возвращаем в поток */
+    .floating { position: static !important; left: auto !important; top: auto !important; z-index: auto !important; }
+    #board { min-height: 0 !important; gap: 16px; }
+    .cat-board { min-width: 0 !important; min-height: 0 !important; grid-template-columns: 1fr !important; }
+    .card.floating { width: auto !important; }
+
+    /* категории и одиночные цели — на всю ширину, в столбик */
+    .category { width: 100%; flex: 1 1 100%; }
+    .loose-holder { width: 100%; }
+
+    /* ручки перетаскивания на телефоне не нужны */
+    .grip { display: none; }
+
+    /* показываем кнопки −/+ для часов/минут/дня (колеса на тач нет) */
+    .rm-steppers { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+    .rm-step { display: flex; align-items: center; gap: 5px; }
+    .rm-step-lbl { font-size: 12px; color: var(--muted); }
+    .rm-step .btn.sm { padding: 6px 12px; font-size: 16px; line-height: 1; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>target<span>board</span></h1>
+  <div class="head-actions">
+    <button class="btn sm" id="addTaskBtn" title="Отдельная цель вне категорий">＋ Цель</button>
+    <button class="btn sm primary" id="addCatBtn" title="Новая категория">＋ Категория</button>
+  </div>
+  <div class="head-right">
+    <button class="btn sm ghost" id="resetBtn" title="Вернуть всё в авто-раскладку по центру">⤢ Выровнять</button>
+  </div>
+</header>
+
+<div id="left-col">
+  <div id="reminders"></div>
+  <div id="tasks"></div>
+</div>
+
+<main>
+  <div id="board"></div>
+</main>
+
+<script>
+const DEFAULT_COLOR = "#4f8cff"; // синий по умолчанию
+const COLORS = ["#4f8cff", "#3ecf8e", "#ffcf4a", "#ff8a3d", "#ff5d6c", "#c06cff", "#8b93a3"];
+
+let state = { version: 4, categories: [], loose: [], reminders: [], todos: [] };
+
+const uid = (p) => p + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const $ = (s, r = document) => r.querySelector(s);
+const clampPct = (v) => Math.max(0, Math.min(100, Math.round(v || 0)));
+let zTop = 10;
+
+// направление прокрутки колеса: для мыши — ±1 за событие (как сейчас),
+// для тачпада (много мелких пиксельных событий) — накопление до порога, чтобы не «улетало»
+let _wAcc = 0, _wLast = 0;
+function wheelDir(e) {
+  // строчный/страничный режим = классическое колесо мыши → один шаг за событие
+  if (e.deltaMode !== 0) return e.deltaY < 0 ? 1 : -1;
+  const now = performance.now();
+  // новый жест или смена направления — сбросить накопитель
+  if (now - _wLast > 200 || (_wAcc !== 0 && Math.sign(e.deltaY) !== Math.sign(_wAcc))) _wAcc = 0;
+  _wLast = now;
+  _wAcc += e.deltaY;
+  // порог 40px: крупное событие мыши (≈100px) сразу даёт шаг (остаток сбрасываем — ровно 1 шаг/щелчок);
+  // мелкие шаги тачпада копятся до порога → плавно
+  if (Math.abs(_wAcc) >= 40) {
+    const dir = _wAcc < 0 ? 1 : -1;
+    _wAcc = 0;
+    return dir;
+  }
+  return 0;
+}
+
+// строитель кнопок −/+ (для мобильного ввода времени)
+function mkStepper(label, onMinus, onPlus) {
+  const wrap = document.createElement("div"); wrap.className = "rm-step";
+  const lbl = document.createElement("span"); lbl.className = "rm-step-lbl"; lbl.textContent = label;
+  const minus = document.createElement("button"); minus.className = "btn sm"; minus.textContent = "−"; minus.onclick = onMinus;
+  const plus = document.createElement("button"); plus.className = "btn sm"; plus.textContent = "+"; plus.onclick = onPlus;
+  wrap.append(lbl, minus, plus);
+  return wrap;
+}
+
+/* ---------- выбор цвета цели ---------- */
+let _colorPop = null;
+function colorOutside(e) { if (_colorPop && !_colorPop.contains(e.target)) closeColorPicker(); }
+function closeColorPicker() {
+  if (!_colorPop) return;
+  _colorPop.remove(); _colorPop = null;
+  document.removeEventListener("pointerdown", colorOutside);
+}
+function openColorPicker(ev, dot, cardEl, task) {
+  ev.stopPropagation();
+  closeColorPicker();
+  const pop = document.createElement("div");
+  pop.className = "color-pop";
+  for (const c of COLORS) {
+    const sw = document.createElement("button");
+    sw.className = "color-sw" + ((task.color || DEFAULT_COLOR) === c ? " sel" : "");
+    sw.style.background = c;
+    sw.onclick = (e) => {
+      e.stopPropagation();
+      task.color = c;
+      persist();
+      dot.style.background = c;            // обновляем точку и полоску без полной перерисовки
+      cardEl.style.borderLeftColor = c;
+      closeColorPicker();
+    };
+    pop.append(sw);
+  }
+  document.body.append(pop);
+  _colorPop = pop;
+  const r = dot.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + "px";
+  pop.style.top = (r.bottom + 6) + "px";
+  setTimeout(() => document.addEventListener("pointerdown", colorOutside), 0);
+}
+
+/* ---------- свободное перетаскивание за ручку ---------- */
+function mkGrip() {
+  const g = document.createElement("div");
+  g.className = "grip";
+  g.textContent = "⠿";
+  g.title = "Перетащить";
+  return g;
+}
+// применить сохранённую позицию (если есть) к элементу
+function applyPos(el, obj) {
+  if (obj.x != null && obj.y != null) {
+    el.classList.add("floating");
+    el.style.left = obj.x + "px";
+    el.style.top = obj.y + "px";
+    el.style.zIndex = ++zTop;
+  }
+}
+// перетаскивание: handle тянет el внутри container, координаты пишутся в obj.x / obj.y
+function makeDraggable(handle, el, obj, container) {
+  container = container || $("#board");
+  const fit = () => { container.id === "board" ? fitBoardHeight() : fitContainer(container); };
+  handle.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    // если ещё не «плавающий» — зафиксировать текущую позицию и вынуть из потока
+    if (obj.x == null || obj.y == null) {
+      const r = el.getBoundingClientRect();
+      const b = container.getBoundingClientRect();
+      obj.x = r.left - b.left;
+      obj.y = r.top - b.top;
+      el.classList.add("floating");
+      el.style.left = obj.x + "px";
+      el.style.top = obj.y + "px";
+    }
+    el.style.zIndex = ++zTop;
+    handle.setPointerCapture(e.pointerId);
+    const startX = e.clientX, startY = e.clientY;
+    const baseX = obj.x, baseY = obj.y;
+    const move = (ev) => {
+      obj.x = Math.max(0, baseX + (ev.clientX - startX));
+      obj.y = Math.max(0, baseY + (ev.clientY - startY));
+      el.style.left = obj.x + "px";
+      el.style.top = obj.y + "px";
+      fit();
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      persist();
+      fit();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+}
+// растянуть доску по высоте под «плавающие» блоки, чтобы появлялся скролл
+function fitBoardHeight() {
+  const board = $("#board");
+  let maxB = 0;
+  for (const el of board.children) {
+    if (el.classList.contains("floating")) maxB = Math.max(maxB, el.offsetTop + el.offsetHeight);
+  }
+  board.style.minHeight = maxB ? (maxB + 24) + "px" : "";
+}
+// растянуть контейнер (категорию) по ширине и высоте под «плавающие» цели
+function fitContainer(container) {
+  let maxR = 0, maxB = 0;
+  for (const el of container.children) {
+    if (el.classList && el.classList.contains("floating")) {
+      maxR = Math.max(maxR, el.offsetLeft + el.offsetWidth);
+      maxB = Math.max(maxB, el.offsetTop + el.offsetHeight);
+    }
+  }
+  container.style.minWidth = maxR ? maxR + "px" : "";
+  container.style.minHeight = maxB ? maxB + "px" : "";
+}
+function resetLayout() {
+  state.categories.forEach(c => {
+    delete c.x; delete c.y;
+    c.cards.forEach(t => { delete t.x; delete t.y; });
+  });
+  state.loose.forEach(t => { delete t.x; delete t.y; });
+  $("#board").style.minHeight = "";
+  save();
+}
+
+/* ---------- persistence (автосохранение на сервер, /api/board) ---------- */
+// Доска хранится в отдельной БД (board.db), один JSON на пользователя.
+// Напоминания тут НЕ сохраняются — они идут через /api/reminders (Telegram).
+let _pushTimer = null, _pushPending = false, _pushInFlight = false;
+function boardPayload() {
+  return JSON.stringify({
+    version: state.version,
+    categories: state.categories,
+    loose: state.loose,
+    todos: state.todos,
+    updatedAt: state.updatedAt,
+  });
+}
+function schedulePush() {
+  _pushPending = true;
+  if (_pushTimer) return;
+  _pushTimer = setTimeout(flushPush, 600);
+}
+async function flushPush() {
+  _pushTimer = null;
+  if (_pushInFlight) { _pushTimer = setTimeout(flushPush, 300); return; }
+  if (!_pushPending) return;
+  _pushPending = false;
+  _pushInFlight = true;
+  try {
+    await fetch("/api/board", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: boardPayload(),
+    });
+  } catch (e) {}
+  _pushInFlight = false;
+  if (_pushPending) schedulePush();
+}
+// persist() — записать без перерисовки (чтобы не сбивать ползунок/курсор при наборе)
+function persist() {
+  state.updatedAt = new Date().toISOString();
+  schedulePush();
+}
+// save() — записать и перерисовать (для структурных изменений)
+function save() { persist(); render(); }
+// дослать несохранённый дебаунс при уходе со страницы
+window.addEventListener("beforeunload", () => {
+  if (!_pushPending && !_pushInFlight) return;
+  try {
+    state.updatedAt = new Date().toISOString();
+    fetch("/api/board", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: boardPayload(),
+      keepalive: true,
+    });
+  } catch (e) {}
+});
+
+function newCard() {
+  return { id: uid("t"), title: "", note: "", satisfaction: 0,
+           color: DEFAULT_COLOR, createdAt: new Date().toISOString(), subtasks: [] };
+}
+function normTask(t) {
+  if (typeof t.satisfaction !== "number") t.satisfaction = t.done ? 100 : 0;
+  if (!t.color) {
+    // миграция старого приоритета в цвет (high→красный, low→серый, иначе синий)
+    t.color = t.priority === "high" ? "#ff5d6c" : t.priority === "low" ? "#8b93a3" : DEFAULT_COLOR;
+  }
+  delete t.priority; delete t.done; delete t.today;
+  if (!Array.isArray(t.subtasks)) t.subtasks = [];
+  for (const s of t.subtasks) {
+    if (typeof s.satisfaction !== "number") s.satisfaction = s.done ? 100 : 0;
+    delete s.done; delete s.today;
+  }
+}
+function normalize() {
+  // миграция со старого формата { tasks: [...] }
+  if (!Array.isArray(state.categories)) {
+    const old = Array.isArray(state.tasks) ? state.tasks : [];
+    state.categories = old.length ? [{ id: uid("c"), title: "Цели", cards: old }] : [];
+    delete state.tasks;
+  }
+  if (!Array.isArray(state.loose)) state.loose = [];
+  if (!Array.isArray(state.todos)) state.todos = [];
+  for (const cat of state.categories) {
+    if (!cat.id) cat.id = uid("c");
+    if (!Array.isArray(cat.cards)) cat.cards = [];
+    for (const t of cat.cards) normTask(t);
+  }
+  for (const t of state.loose) normTask(t);
+}
+
+async function boot() {
+  try {
+    const r = await fetch("/api/board", { cache: "no-store" });
+    if (r.ok) state = await r.json();
+  } catch (e) {}
+  normalize();
+  render();
+  initReminders();
+  initTasks();
+  loadReminders();
+}
+
+/* ---------- mutations ---------- */
+function addCategory() {
+  state.categories.push({ id: uid("c"), title: "", cards: [] });
+  save();
+  const heads = document.querySelectorAll(".cat-title");
+  if (heads.length) heads[heads.length - 1].focus();
+}
+function addCard(cat) {
+  cat.cards.unshift(newCard());
+  save();
+  const card = document.querySelector(`[data-cat="${cat.id}"] .card .main-input`);
+  if (card) card.focus();
+}
+function addLooseTask() {
+  state.loose.push(newCard());
+  save();
+  const inputs = document.querySelectorAll(".loose-holder .main-input");
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+function addSub(task) {
+  task.subtasks.push({ id: uid("s"), title: "", satisfaction: 0 });
+  save();
+  const card = document.querySelector(`[data-id="${task.id}"]`);
+  const inputs = card ? card.querySelectorAll(".sub-input") : [];
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+/* ---------- render ---------- */
+function render() {
+  const board = $("#board");
+  board.innerHTML = "";
+  if (!state.categories.length && !state.loose.length) {
+    board.innerHTML = `<div class="empty"><div class="big">🗂️</div>Пусто. Добавьте «＋ Категория» или «＋ Цель» в шапке.</div>`;
+  }
+  // одиночные задачи вне категорий
+  for (const task of state.loose) {
+    const holder = document.createElement("div");
+    holder.className = "loose-holder";
+    renderCard(holder, state.loose, task, { mode: "float", floatEl: holder, floatObj: task, container: board });
+    board.append(holder);
+  }
+  // категории
+  for (const cat of state.categories) renderCategory(board, cat);
+  fitBoardHeight();
+}
+
+function renderCategory(board, cat) {
+  const sec = document.createElement("div");
+  sec.className = "category";
+  sec.dataset.cat = cat.id;
+  applyPos(sec, cat);
+
+  // заголовок категории
+  const head = document.createElement("div");
+  head.className = "category-head";
+
+  const grip = mkGrip();
+
+  const title = document.createElement("input");
+  title.className = "cat-title";
+  title.value = cat.title;
+  title.placeholder = "Название категории…";
+  title.oninput = () => { cat.title = title.value; persist(); };
+
+  const spacer = document.createElement("div");
+  spacer.style.flex = "1";
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "btn sm";
+  addBtn.textContent = "＋";
+  addBtn.title = "Добавить карточку";
+  addBtn.onclick = () => addCard(cat);
+
+  const del = document.createElement("button");
+  del.className = "icon-btn";
+  del.textContent = "🗑";
+  del.title = "Удалить категорию";
+  del.onclick = () => {
+    if (!cat.cards.length || confirm(`Удалить категорию «${cat.title || "без названия"}» со всеми карточками?`)) {
+      state.categories = state.categories.filter(c => c.id !== cat.id);
+      save();
+    }
+  };
+
+  head.append(grip, title, spacer, addBtn, del);
+  sec.append(head);
+  makeDraggable(grip, sec, cat);
+
+  // доска карточек — ширина по числу карточек (1 карточка → 1 столбец, иначе 2)
+  const catBoard = document.createElement("div");
+  catBoard.className = "cat-board";
+  const cols = Math.min(Math.max(cat.cards.length, 1), 2);
+  catBoard.style.gridTemplateColumns = `repeat(${cols}, var(--card-w))`;
+
+  if (!cat.cards.length) {
+    const tile = document.createElement("button");
+    tile.className = "add-card-tile";
+    tile.textContent = "＋";
+    tile.title = "Добавить карточку";
+    tile.onclick = () => addCard(cat);
+    catBoard.append(tile);
+  } else {
+    for (const task of cat.cards) renderCard(catBoard, cat.cards, task, { mode: "float" });
+  }
+
+  sec.append(catBoard);
+  board.append(sec);
+  fitContainer(catBoard); // растянуть категорию под уже «плавающие» цели
+}
+
+// parent — куда вставить карточку; list — массив, в котором живёт задача (для удаления)
+// opts.floatEl/floatObj — если заданы, карточку можно таскать за ручку (одиночные задачи)
+function renderCard(parent, list, task, opts) {
+  const el = document.createElement("div");
+  el.className = "card";
+  el.style.borderLeftColor = task.color || DEFAULT_COLOR;
+  el.dataset.id = task.id;
+
+  const body = document.createElement("div");
+  body.className = "card-body";
+
+  // строка: основная задача + приоритет + удалить
+  const head = document.createElement("div");
+  head.className = "row";
+
+  const grip = opts ? mkGrip() : null;
+
+  const main = document.createElement("input");
+  main.className = "main-input";
+  main.value = task.title;
+  main.placeholder = "Основная цель…";
+  main.oninput = () => { task.title = main.value; persist(); };
+  main.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addSub(task); } };
+
+  const dot = document.createElement("div");
+  dot.className = "color-dot";
+  dot.style.background = task.color || DEFAULT_COLOR;
+  dot.title = "Цвет цели";
+  dot.onclick = (e) => openColorPicker(e, dot, el, task);
+
+  const del = document.createElement("button");
+  del.className = "icon-btn";
+  del.textContent = "🗑";
+  del.title = "Удалить карточку";
+  del.onclick = () => {
+    if ((!task.title && !task.subtasks.length) || confirm("Удалить карточку?")) {
+      const i = list.indexOf(task);
+      if (i > -1) list.splice(i, 1);
+      save();
+    }
+  };
+
+  if (grip) head.append(grip, main, dot, del);
+  else head.append(main, dot, del);
+  body.append(head);
+
+  // ползунок главной задачи — под текстом, чуть крупнее
+  const slider = mkSlider(task.satisfaction, (v) => { task.satisfaction = v; persist(); });
+  slider.classList.add("sat-lg");
+  slider.style.margin = "8px 0 2px";
+  body.append(slider);
+
+  el.append(body);
+
+  // подзадачи: текст сверху, шкала снизу, с отступом
+  if (task.subtasks.length) {
+    const subs = document.createElement("div");
+    subs.className = "subs";
+    task.subtasks.forEach((s, idx) => {
+      const wrap = document.createElement("div");
+      wrap.className = "sub";
+
+      const row = document.createElement("div");
+      row.className = "row";
+      const si = document.createElement("input");
+      si.className = "sub-input";
+      si.value = s.title;
+      si.placeholder = "Подцель…";
+      si.oninput = () => { s.title = si.value; persist(); };
+      si.onkeydown = (e) => {
+        if (e.key === "Enter") { e.preventDefault(); addSub(task); }
+        if (e.key === "Backspace" && s.title === "") { e.preventDefault(); task.subtasks.splice(idx, 1); save(); }
+      };
+      const sdel = document.createElement("button");
+      sdel.className = "icon-btn";
+      sdel.textContent = "✕";
+      sdel.title = "Удалить подцель";
+      sdel.onclick = () => { task.subtasks.splice(idx, 1); save(); };
+      row.append(si, sdel);
+      wrap.append(row);
+
+      // шкала под подзадачей
+      wrap.append(mkSlider(s.satisfaction, (v) => { s.satisfaction = v; persist(); }));
+
+      subs.append(wrap);
+    });
+    el.append(subs);
+  }
+
+  // добавить подзадачу
+  const addRow = document.createElement("div");
+  addRow.className = "add-sub";
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "＋";
+  addBtn.title = "Добавить подцель";
+  addBtn.onclick = () => addSub(task);
+  addRow.append(addBtn);
+  el.append(addRow);
+
+  parent.append(el);
+
+  // свободное перетаскивание за ручку (и одиночные цели, и цели внутри категории)
+  if (grip && opts.mode === "float") {
+    const fEl = opts.floatEl || el;          // одиночная — обёртка-holder, в категории — сама карточка
+    const fObj = opts.floatObj || task;
+    const container = opts.container || parent;
+    applyPos(fEl, fObj);
+    makeDraggable(grip, fEl, fObj, container);
+  }
+}
+
+/* ---------- helpers ---------- */
+function mkSlider(value, onInput) {
+  const wrap = document.createElement("div");
+  wrap.className = "sat";
+  const range = document.createElement("input");
+  range.type = "range"; range.min = 0; range.max = 100; range.value = clampPct(value);
+  range.className = "sat-range";
+  range.title = "Насколько доволен результатом";
+  const lbl = document.createElement("span");
+  lbl.className = "sat-val";
+  const paint = () => {
+    const v = clampPct(range.value);
+    const hue = Math.round(v * 1.2); // 0 = красный, 120 = зелёный
+    lbl.textContent = v + "%";
+    lbl.style.color = `hsl(${hue} 70% 58%)`;
+    range.style.background = `linear-gradient(90deg, hsl(${hue} 70% 50%) ${v}%, var(--line) ${v}%)`;
+  };
+  paint();
+  range.oninput = () => { paint(); onInput(clampPct(range.value)); };
+  // прокрутка колеса над шкалой: ±1% (мышь — за щелчок, тачпад — плавно)
+  range.onwheel = (e) => {
+    e.preventDefault();
+    const dir = wheelDir(e);
+    if (!dir) return;
+    const v = clampPct(+range.value + dir);
+    range.value = v;
+    paint();
+    onInput(v);
+  };
+  wrap.append(range, lbl);
+  return wrap;
+}
+
+/* ---------- модуль напоминаний (интерфейс; отправка в Telegram — позже) ---------- */
+const MONTHS_GEN = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const MONTHS_NOM = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const WEEKDAYS = ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+const DOW_SHORT = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const pad2 = (n) => String(n).padStart(2, "0");
+const sameDate = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const isoDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+// показывать не больше `max` строк, дальше — собственный скролл списка
+function capList(listEl, max = 10) {
+  listEl.style.maxHeight = "";
+  listEl.style.overflowY = "";
+  listEl.style.paddingRight = "";
+  const items = listEl.children;
+  if (items.length <= max) return;
+  const gap = parseFloat(getComputedStyle(listEl).rowGap) || 0;
+  let h = 0;
+  for (let i = 0; i < max; i++) h += items[i].offsetHeight;
+  h += gap * (max - 1);
+  listEl.style.maxHeight = h + "px";
+  listEl.style.overflowY = "auto";
+  listEl.style.paddingRight = "4px";
+}
+
+let rm = { h: 9, m: 0, date: new Date() };
+let rmFirstEnter = true, rmLastLeave = 0, calMonth = null, rmTimeTouched = false;
+let elH, elM, elDow, elFull, elCal, elCalTitle, elGrid, elText, elList;
+
+function initReminders() {
+  const root = $("#reminders");
+  root.innerHTML = "";
+
+  const header = document.createElement("div");
+  header.className = "rm-header";
+  header.innerHTML = `<span>🔔 Напоминания</span><span class="rm-soon">EasySchBot</span>`;
+  root.append(header);
+
+  // часы + дата
+  const top = document.createElement("div");
+  top.className = "rm-top";
+
+  const clock = document.createElement("div");
+  clock.className = "rm-clock";
+  elH = document.createElement("span"); elH.className = "rm-h"; elH.title = "Колесо мыши — часы";
+  const colon = document.createElement("span"); colon.className = "rm-colon"; colon.textContent = ":";
+  elM = document.createElement("span"); elM.className = "rm-m"; elM.title = "Колесо мыши — минуты (шаг 5)";
+  clock.append(elH, colon, elM);
+
+  const date = document.createElement("div");
+  date.className = "rm-date"; date.title = "Колесо — дни · клик — календарь";
+  elDow = document.createElement("div"); elDow.className = "rm-dow";
+  elFull = document.createElement("div"); elFull.className = "rm-full";
+  date.append(elDow, elFull);
+
+  top.append(clock, date);
+  root.append(top);
+
+  // кнопки −/+ для тача (видны только в мобильной раскладке, на десктопе скрыты)
+  const steppers = document.createElement("div");
+  steppers.className = "rm-steppers";
+  steppers.append(
+    mkStepper("Час", () => rmAdjustHour(-1), () => rmAdjustHour(1)),
+    mkStepper("Мин", () => rmAdjustMinute(-1), () => rmAdjustMinute(1)),
+    mkStepper("День", () => rmAdjustDay(-1), () => rmAdjustDay(1))
+  );
+  root.append(steppers);
+
+  // календарь (скрыт по умолчанию)
+  elCal = document.createElement("div");
+  elCal.className = "rm-cal hidden";
+  const calHead = document.createElement("div"); calHead.className = "rm-cal-head";
+  const prev = document.createElement("button"); prev.className = "icon-btn"; prev.textContent = "‹";
+  const next = document.createElement("button"); next.className = "icon-btn"; next.textContent = "›";
+  elCalTitle = document.createElement("div"); elCalTitle.className = "rm-cal-title";
+  calHead.append(prev, elCalTitle, next);
+  elGrid = document.createElement("div"); elGrid.className = "rm-grid";
+  elCal.append(calHead, elGrid);
+  root.append(elCal);
+  prev.onclick = () => { calMonth.setMonth(calMonth.getMonth() - 1); renderCal(); };
+  next.onclick = () => { calMonth.setMonth(calMonth.getMonth() + 1); renderCal(); };
+
+  // ввод + кнопка
+  elText = document.createElement("input");
+  elText.className = "rm-text"; elText.placeholder = "О чём напомнить…";
+  elText.onkeydown = (e) => { if (e.key === "Enter") rmAdd(); };
+  root.append(elText);
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "btn primary rm-add"; addBtn.textContent = "Напомнить";
+  addBtn.onclick = rmAdd;
+  root.append(addBtn);
+
+  elList = document.createElement("div"); elList.className = "rm-list";
+  root.append(elList);
+
+  // прокрутка колесом
+  elH.onwheel = (e) => { e.preventDefault(); const d = wheelDir(e); if (d) rmAdjustHour(d); };
+  elM.onwheel = (e) => { e.preventDefault(); const d = wheelDir(e); if (d) rmAdjustMinute(d); };
+  date.onwheel = (e) => { e.preventDefault(); const d = wheelDir(e); if (d) rmAdjustDay(d); };
+  date.onclick = () => { elCal.classList.contains("hidden") ? openCal() : closeCal(); };
+
+  // авто-выставление текущего времени при наведении (с правилом 10 секунд)
+  root.addEventListener("pointerenter", () => {
+    if (rmFirstEnter) { rmFirstEnter = false; rmSetNow(); }
+    else if (Date.now() - rmLastLeave >= 10000) rmSetNow();
+  });
+  root.addEventListener("pointerleave", () => { rmLastLeave = Date.now(); });
+
+  // клик вне календаря — закрыть
+  document.addEventListener("pointerdown", (e) => {
+    if (!elCal.classList.contains("hidden") && !elCal.contains(e.target) && !e.target.closest(".rm-date")) closeCal();
+  });
+
+  updateClock();
+  renderRmList();
+}
+
+function rmSetNow() {
+  const d = new Date();
+  rm.h = d.getHours();
+  rm.m = d.getMinutes();
+  rm.date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  rmTimeTouched = false;
+  updateClock();
+}
+// пока время не редактировали вручную: не сегодня → 12:00, сегодня → текущее время
+function rmApplyDateRule() {
+  if (rmTimeTouched) return;
+  if (sameDate(rm.date, new Date())) {
+    const d = new Date();
+    rm.h = d.getHours();
+    rm.m = d.getMinutes();
+  } else {
+    rm.h = 12;
+    rm.m = 0;
+  }
+}
+// единые изменения (используются и колесом, и кнопками −/+ на телефоне)
+function rmAdjustHour(dir) { rmTimeTouched = true; rm.h = (rm.h + dir + 24) % 24; updateClock(); }
+function rmAdjustMinute(dir) { rmTimeTouched = true; rm.m = (rm.m + dir * 5 + 60) % 60; updateClock(); }
+function rmAdjustDay(dir) {
+  rm.date = new Date(rm.date.getFullYear(), rm.date.getMonth(), rm.date.getDate() + dir);
+  rmApplyDateRule();
+  updateClock();
+}
+function updateClock() {
+  elH.textContent = pad2(rm.h);
+  elM.textContent = pad2(rm.m);
+  elDow.textContent = WEEKDAYS[rm.date.getDay()];
+  elFull.textContent = `${rm.date.getDate()} ${MONTHS_GEN[rm.date.getMonth()]} ${rm.date.getFullYear()}`;
+  if (!elCal.classList.contains("hidden")) renderCal();
+}
+function openCal() { calMonth = new Date(rm.date.getFullYear(), rm.date.getMonth(), 1); renderCal(); elCal.classList.remove("hidden"); }
+function closeCal() { elCal.classList.add("hidden"); }
+function renderCal() {
+  elCalTitle.textContent = `${MONTHS_NOM[calMonth.getMonth()]} ${calMonth.getFullYear()}`;
+  elGrid.innerHTML = "";
+  for (const d of DOW_SHORT) { const c = document.createElement("div"); c.className = "cell dow"; c.textContent = d; elGrid.append(c); }
+  const y = calMonth.getFullYear(), mo = calMonth.getMonth();
+  const startDow = (new Date(y, mo, 1).getDay() + 6) % 7; // понедельник первый
+  const daysIn = new Date(y, mo + 1, 0).getDate();
+  const today = new Date();
+  for (let i = 0; i < startDow; i++) { const c = document.createElement("div"); c.className = "cell pad"; elGrid.append(c); }
+  for (let d = 1; d <= daysIn; d++) {
+    const c = document.createElement("div"); c.className = "cell day"; c.textContent = d;
+    const cd = new Date(y, mo, d);
+    if (sameDate(cd, rm.date)) c.classList.add("sel");
+    if (sameDate(cd, today)) c.classList.add("today");
+    c.onclick = () => { rm.date = new Date(y, mo, d); rmApplyDateRule(); closeCal(); updateClock(); };
+    elGrid.append(c);
+  }
+}
+// Напоминания живут на сервере (main Reminder model) и доставляются в Telegram
+// существующим cron-диспетчером. Здесь — только UI поверх /api/reminders.
+let serverReminders = [];
+// remindAt = киевское настенное время, хранится как UTC → читаем UTC-поля как есть
+function mapServerReminder(r) {
+  const iso = r.remindAt;
+  return { id: r.id, text: r.text, date: iso.slice(0, 10), h: +iso.slice(11, 13), m: +iso.slice(14, 16) };
+}
+async function loadReminders() {
+  try {
+    const r = await fetch("/api/reminders", { cache: "no-store" });
+    if (!r.ok) return;
+    const list = await r.json();
+    serverReminders = list.map(mapServerReminder);
+    renderRmList();
+  } catch (e) {}
+}
+async function rmAdd() {
+  const text = (elText.value || "").trim();
+  const date = isoDate(rm.date);
+  const time = pad2(rm.h) + ":" + pad2(rm.m);
+  elText.value = "";
+  try {
+    const r = await fetch("/api/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, time, text: text || "Напоминание" }),
+    });
+    if (r.ok) { serverReminders.push(mapServerReminder(await r.json())); renderRmList(); }
+  } catch (e) {}
+}
+async function rmDelete(id) {
+  serverReminders = serverReminders.filter(x => x.id !== id);
+  renderRmList();
+  try { await fetch(`/api/reminders/${id}`, { method: "DELETE" }); } catch (e) {}
+}
+function renderRmList() {
+  elList.innerHTML = "";
+  if (!serverReminders.length) {
+    const e = document.createElement("div"); e.className = "rm-empty"; e.textContent = "Пока нет напоминаний";
+    elList.append(e); return;
+  }
+  const key = (r) => r.date + pad2(r.h) + pad2(r.m);
+  const sorted = [...serverReminders].sort((a, b) => key(a).localeCompare(key(b)));
+  for (const r of sorted) {
+    const item = document.createElement("div"); item.className = "rm-item";
+    const t = document.createElement("div"); t.className = "t"; t.textContent = r.text;
+    const when = document.createElement("div"); when.className = "when";
+    const [, mm, dd] = r.date.split("-").map(Number);
+    when.textContent = `${pad2(r.h)}:${pad2(r.m)} · ${dd} ${MONTHS_GEN[mm - 1]}`;
+    const del = document.createElement("button"); del.className = "icon-btn"; del.textContent = "✕"; del.title = "Удалить";
+    del.onclick = () => rmDelete(r.id);
+    item.append(t, when, del);
+    elList.append(item);
+  }
+  capList(elList);
+}
+
+/* ---------- блок задач (две вкладки: Задачи / Выполненные) ---------- */
+let todoTab = "active";
+let elTodoList, elTodoInput, elTabActive, elTabDone;
+
+function initTasks() {
+  const root = $("#tasks");
+  root.innerHTML = "";
+
+  const tabs = document.createElement("div");
+  tabs.className = "tt-tabs";
+  elTabActive = document.createElement("button"); elTabActive.className = "tt-tab"; elTabActive.textContent = "Задачи";
+  elTabDone = document.createElement("button"); elTabDone.className = "tt-tab"; elTabDone.textContent = "Выполненные";
+  elTabActive.onclick = () => { todoTab = "active"; renderTodos(); };
+  elTabDone.onclick = () => { todoTab = "done"; renderTodos(); };
+  tabs.append(elTabActive, elTabDone);
+  root.append(tabs);
+
+  elTodoInput = document.createElement("input");
+  elTodoInput.className = "tt-input"; elTodoInput.placeholder = "Новая задача…";
+  elTodoInput.onkeydown = (e) => { if (e.key === "Enter") addTodo(); };
+  root.append(elTodoInput);
+
+  elTodoList = document.createElement("div"); elTodoList.className = "tt-list";
+  root.append(elTodoList);
+
+  renderTodos();
+}
+
+function addTodo() {
+  const text = (elTodoInput.value || "").trim();
+  if (!text) return;
+  state.todos.unshift({ id: uid("d"), text, done: false });
+  elTodoInput.value = "";
+  persist();
+  renderTodos();
+}
+
+function renderTodos() {
+  elTabActive.classList.toggle("active", todoTab === "active");
+  elTabDone.classList.toggle("active", todoTab === "done");
+  elTodoInput.style.display = todoTab === "active" ? "" : "none";
+
+  elTodoList.innerHTML = "";
+  const items = state.todos.filter(t => (todoTab === "active" ? !t.done : t.done));
+  if (!items.length) {
+    const e = document.createElement("div");
+    e.className = "tt-empty";
+    e.textContent = todoTab === "active" ? "Нет задач" : "Пока пусто";
+    elTodoList.append(e);
+    return;
+  }
+  for (const t of items) {
+    const row = document.createElement("div");
+    row.className = "tt-item" + (t.done ? " done" : "");
+
+    const txt = document.createElement("div"); txt.className = "t"; txt.textContent = t.text;
+
+    // будильник — заполнить поле в напоминаниях
+    const alarm = document.createElement("button");
+    alarm.className = "icon-btn tt-alarm";
+    alarm.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 1.5"/><path d="M5 3 2.5 5.5"/><path d="M19 3l2.5 2.5"/></svg>`;
+    alarm.title = "В напоминания";
+    alarm.onclick = () => { if (elText) { elText.value = t.text; elText.focus(); } };
+
+    // галочка — перенести в выполненные / вернуть
+    const check = document.createElement("div");
+    check.className = "tt-check" + (t.done ? " checked" : "");
+    check.title = t.done ? "Вернуть в задачи" : "Выполнено";
+    check.onclick = () => { t.done = !t.done; persist(); renderTodos(); };
+
+    // крестик — удалить
+    const del = document.createElement("button");
+    del.className = "icon-btn"; del.textContent = "✕"; del.title = "Удалить";
+    del.onclick = () => { state.todos = state.todos.filter(x => x.id !== t.id); persist(); renderTodos(); };
+
+    row.append(txt, alarm, check, del);
+    elTodoList.append(row);
+  }
+  capList(elTodoList);
+}
+
+/* ---------- events ---------- */
+$("#addCatBtn").onclick = addCategory;
+$("#addTaskBtn").onclick = addLooseTask;
+$("#resetBtn").onclick = resetLayout;
+
+boot();
+</script>
+</body>
+</html>
