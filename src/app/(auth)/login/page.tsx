@@ -29,9 +29,9 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Почніть за 30 секунд</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Вхід за один клік</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Новий акаунт створюється автоматично — просто продовжіть з Google
+              Продовжіть з Google — новий акаунт створюється автоматично
             </p>
           </div>
 
@@ -42,10 +42,6 @@ export default function LoginPage() {
               {error}
             </p>
           )}
-
-          <p className="text-center text-xs text-muted-foreground">
-            Ще немає акаунту? Просто натисніть кнопку вище — акаунт створюється автоматично.
-          </p>
         </div>
       </div>
     </div>

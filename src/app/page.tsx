@@ -81,7 +81,7 @@ export default async function Home() {
           </Link>
         </div>
         <p className="text-xs text-muted-foreground mt-4">
-          Реєстрація за 30 секунд. Жодної прив&apos;язки картки.
+          Вхід через Google в один клік. Жодної прив&apos;язки картки.
         </p>
       </section>
 
@@ -241,16 +241,16 @@ export default async function Home() {
             <div className="flex-1">
               <h3 className="text-xl font-bold mb-2">Оплати розпізнаються самі</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Клієнт просто переказує гроші на вашу картку — система сама розуміє, від кого
-                прийшла оплата, і зараховує її. Жодних коментарів до переказу, дзвінків
-                і звіряння вручну.
+                Клієнт робить звичайний переказ на вашу банківську картку — без платіжних
+                систем і комісій, гроші одразу у вас. А система сама розуміє, від кого
+                прийшла оплата, і зараховує її: жодних коментарів до переказу й звіряння вручну.
               </p>
             </div>
           </div>
           <div className="mt-6 grid sm:grid-cols-3 gap-3">
             {[
               { icon: Check, text: "Розпізнає платника автоматично" },
-              { icon: BarChart3, text: "Баланс оновлюється сам" },
+              { icon: CreditCard, text: "Напряму на вашу картку, без комісій" },
               { icon: Bell, text: "Ви і клієнт бачите підтвердження" },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-2.5 bg-white/60 rounded-xl px-4 py-3 text-sm font-medium border border-emerald-500/10">
@@ -332,7 +332,7 @@ export default async function Home() {
             Зареєструватися
             <ArrowRight className="h-4 w-4" />
           </Link>
-          <p className="text-white/30 text-xs mt-4">Реєстрація займає 30 секунд</p>
+          <p className="text-white/30 text-xs mt-4">Реєстрація в один клік через Google</p>
         </div>
       </section>
 
