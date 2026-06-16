@@ -62,8 +62,8 @@ export default async function Home() {
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
           Для репетиторів, тренерів, коучів та всіх, хто працює на себе.
-          Ведіть клієнтів, відстежуйте оплати та отримуйте повідомлення у Telegram —
-          все в одному місці.
+          Клієнт переказує гроші — а система сама бачить, від кого оплата.
+          Розклад і нагадування — у Telegram.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
@@ -231,6 +231,37 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ── Payment matching highlight (the differentiator) ── */}
+      <section className="max-w-5xl mx-auto px-5 pb-8">
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-primary/5 border border-emerald-500/20 p-8 sm:p-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            <div className="h-14 w-14 rounded-2xl bg-emerald-600 flex items-center justify-center shrink-0">
+              <CreditCard className="h-7 w-7 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold mb-2">Оплати розпізнаються самі</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Клієнт просто переказує гроші на вашу картку — система сама розуміє, від кого
+                прийшла оплата, і зараховує її. Жодних коментарів до переказу, дзвінків
+                і звіряння вручну.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 grid sm:grid-cols-3 gap-3">
+            {[
+              { icon: Check, text: "Розпізнає платника автоматично" },
+              { icon: BarChart3, text: "Баланс оновлюється сам" },
+              { icon: Bell, text: "Ви і клієнт бачите підтвердження" },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2.5 bg-white/60 rounded-xl px-4 py-3 text-sm font-medium border border-emerald-500/10">
+                <Icon className="h-4 w-4 text-emerald-600 shrink-0" />
+                {text}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Telegram highlight ── */}
       <section className="max-w-5xl mx-auto px-5 pb-16">
         <div className="rounded-2xl bg-gradient-to-br from-[#2AABEE]/10 to-primary/5 border border-[#2AABEE]/20 p-8 sm:p-10">
@@ -241,9 +272,8 @@ export default async function Home() {
             <div className="flex-1">
               <h3 className="text-xl font-bold mb-2">Telegram — замість окремого додатку</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Ви та ваші клієнти отримуєте нагадування про заняття прямо в Telegram.
-                Клієнт дізнається про оплату там же — вам не потрібно нічого нагадувати вручну.
-                Все відбувається автоматично.
+                Нагадування про заняття й оплати приходять вам і клієнтам прямо в Telegram —
+                автоматично, без окремого додатку.
               </p>
             </div>
           </div>
