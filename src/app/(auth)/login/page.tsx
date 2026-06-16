@@ -29,9 +29,9 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Увійти в кабінет</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Почніть за 30 секунд</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Для входу використовуйте ваш Google акаунт
+              Новий акаунт створюється автоматично — просто продовжіть з Google
             </p>
           </div>
 
