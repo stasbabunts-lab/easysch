@@ -52,7 +52,7 @@ export default async function Home() {
 
       {/* ── Hero ── */}
       <section className="max-w-5xl mx-auto px-5 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full mb-6">
+        <div className="inline-flex items-center gap-2 text-sm font-semibold text-primary bg-primary/10 ring-1 ring-primary/20 px-4 py-2 rounded-full mb-6">
           <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
           14 днів безкоштовно — без картки
         </div>
@@ -294,16 +294,16 @@ export default async function Home() {
 
       {/* ── Pricing ── */}
       <section className="max-w-2xl mx-auto px-5 py-16">
-        <div className="max-w-sm mx-auto rounded-2xl border border-border/60 bg-card p-8 shadow-sm text-center">
-          <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full mb-5">
-            14 днів безкоштовно
+        <div className="max-w-sm mx-auto rounded-2xl border border-primary/30 bg-card p-8 shadow-sm text-center">
+          <span className="inline-block text-xs font-semibold uppercase tracking-wider text-primary mb-4">
+            Безкоштовний старт
           </span>
-          <div className="flex items-end justify-center gap-1.5">
-            <span className="text-5xl font-bold tracking-tight">{priceUah}</span>
-            <span className="text-lg font-medium text-muted-foreground mb-1.5">грн / {periodLabel}</span>
+          <div className="text-4xl sm:text-[2.75rem] font-bold tracking-tight leading-[1.1]">
+            14 днів <span className="text-primary">безкоштовно</span>
           </div>
           <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
-            Усі функції без обмежень. На старті без прив&apos;язки картки, без прихованих платежів.
+            Далі — лише <span className="font-semibold text-foreground">{priceUah} грн / {periodLabel}</span>.
+            Усі функції без обмежень, без прихованих платежів.
           </p>
           <Link
             href="/register"
