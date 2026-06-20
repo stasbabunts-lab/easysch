@@ -175,6 +175,8 @@ interface Campaign {
   label: string;
   clicks: number;
   signups: number;
+  activated: number;
+  paid: number;
   createdAt: string;
 }
 
@@ -299,7 +301,7 @@ function CampaignsSection() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <div className="flex items-center gap-4 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span className="text-muted-foreground">
                       Кліків: <span className="font-semibold text-foreground">{c.clicks}</span>
                     </span>
@@ -308,6 +310,12 @@ function CampaignsSection() {
                     </span>
                     <span className="text-muted-foreground">
                       Конверсія: <span className="font-semibold text-foreground">{conv}%</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Завели учня: <span className="font-semibold text-foreground">{c.activated}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      З оплатою: <span className="font-semibold text-foreground">{c.paid}</span>
                     </span>
                   </div>
                 </div>

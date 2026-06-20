@@ -11,22 +11,41 @@ export async function GET() {
 
   const campaigns = await prisma.campaign.findMany({ orderBy: { createdAt: "desc" } });
 
-  const grouped = await prisma.teacher.groupBy({
-    by: ["referralSlug"],
+  // Pull each attributed teacher with how many students / payments they have, so we
+  // can measure activation per campaign (not just raw signups).
+  const teachers = await prisma.teacher.findMany({
     where: { referralSlug: { not: null } },
-    _count: { _all: true },
+    select: {
+      referralSlug: true,
+      _count: { select: { students: true, payments: true } },
+    },
   });
-  const signupsBySlug = new Map(grouped.map((g) => [g.referralSlug, g._count._all]));
+
+  type Stat = { signups: number; activated: number; paid: number };
+  const statsBySlug = new Map<string, Stat>();
+  for (const t of teachers) {
+    const slug = t.referralSlug!;
+    const s = statsBySlug.get(slug) ?? { signups: 0, activated: 0, paid: 0 };
+    s.signups += 1;
+    if (t._count.students > 0) s.activated += 1; // added at least one student
+    if (t._count.payments > 0) s.paid += 1; // received at least one payment
+    statsBySlug.set(slug, s);
+  }
 
   return NextResponse.json(
-    campaigns.map((c) => ({
-      id: c.id,
-      slug: c.slug,
-      label: c.label,
-      clicks: c.clicks,
-      signups: signupsBySlug.get(c.slug) ?? 0,
-      createdAt: c.createdAt,
-    }))
+    campaigns.map((c) => {
+      const s = statsBySlug.get(c.slug) ?? { signups: 0, activated: 0, paid: 0 };
+      return {
+        id: c.id,
+        slug: c.slug,
+        label: c.label,
+        clicks: c.clicks,
+        signups: s.signups,
+        activated: s.activated,
+        paid: s.paid,
+        createdAt: c.createdAt,
+      };
+    })
   );
 }
 
@@ -48,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   const c = await prisma.campaign.create({ data: { slug, label } });
   return NextResponse.json(
-    { id: c.id, slug: c.slug, label: c.label, clicks: 0, signups: 0, createdAt: c.createdAt },
+    { id: c.id, slug: c.slug, label: c.label, clicks: 0, signups: 0, activated: 0, paid: 0, createdAt: c.createdAt },
     { status: 201 }
   );
 }
