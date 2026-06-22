@@ -7,7 +7,7 @@ import { formatAmount } from "@/lib/payment-offset";
 import { getStudentBalance, GROUP_BILLING_START } from "@/lib/balance";
 import { kyivToday, kyivCurrentTime } from "@/lib/time";
 import { StudentActions } from "@/components/students/StudentActions";
-import { PriceField, GroupPriceField, NotesField, PaymentDetailsField } from "@/components/students/StudentEditableFields";
+import { PriceField, GroupPriceField, NotesField, PaymentDetailsField, PhoneField } from "@/components/students/StudentEditableFields";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { MessageCircle } from "lucide-react";
 
@@ -57,7 +57,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     }),
     prisma.teacher.findUnique({
       where: { id: session.user.id },
-      select: { paymentDetails: true },
+      select: { paymentDetails: true, showStudentPhone: true },
     }),
   ]);
 
@@ -126,6 +126,11 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         </div>
         <StudentActions student={student} hasPaymentDetails={!!student.paymentDetails || !!teacher?.paymentDetails} bankConnected={bankConnected} />
       </div>
+
+      {/* Phone — only when enabled in settings */}
+      {teacher?.showStudentPhone && (
+        <PhoneField studentId={student.id} phone={student.phone} />
+      )}
 
       {/* Notes */}
       <NotesField studentId={student.id} notes={student.notes} />

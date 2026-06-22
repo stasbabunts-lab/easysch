@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const existing = await getStudent(id, session.user.id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, lessonPrice, groupLessonPrice, notes, paymentDetails, balanceAdjustmentKopecks, sendPaymentReminder, isArchived } = await req.json();
+  const { name, lessonPrice, groupLessonPrice, notes, phone, paymentDetails, balanceAdjustmentKopecks, sendPaymentReminder, isArchived } = await req.json();
 
   // When price changes, compensate balanceAdjustmentKopecks so past lessons
   // are not retroactively affected. Only auto-adjust when the caller isn't
@@ -68,6 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         groupLessonPrice: groupLessonPrice === null ? null : Math.round(Number(groupLessonPrice) * 100),
       }),
       ...(notes !== undefined && { notes }),
+      ...(phone !== undefined && { phone: phone?.trim() || null }),
       ...(paymentDetails !== undefined && { paymentDetails: paymentDetails || null }),
       ...(balanceAdjustmentKopecks !== undefined && {
         balanceAdjustmentKopecks: Math.round(Number(balanceAdjustmentKopecks)),

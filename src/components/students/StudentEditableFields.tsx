@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, X, Pencil, StickyNote, CreditCard } from "lucide-react";
+import { Check, X, Pencil, StickyNote, CreditCard, Phone } from "lucide-react";
 import { formatAmount } from "@/lib/format";
 
 interface Props {
@@ -401,6 +401,108 @@ export function PaymentDetailsField({ studentId, paymentDetails }: { studentId: 
               <Pencil className="h-3.5 w-3.5 text-muted-foreground/0 group-hover/pd:text-muted-foreground/50 transition-colors" />
             </div>
           )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Inline phone ───────────────────────────────────────────────────────────────
+
+export function PhoneField({ studentId, phone }: { studentId: string; phone: string | null }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(phone ?? "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit() {
+    setValue(phone ?? "");
+    setEditing(true);
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
+  }
+
+  function cancel() {
+    setEditing(false);
+    setValue(phone ?? "");
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: value.trim() || null }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Телефон збережено");
+      setEditing(false);
+      router.refresh();
+    } catch {
+      toast.error("Помилка збереження");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") cancel();
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Phone className="h-3.5 w-3.5" />
+        Телефон
+      </div>
+
+      {editing ? (
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="tel"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKey}
+            disabled={saving}
+            placeholder="+380 99 000 00 00"
+            className="flex-1 h-9 rounded-lg border border-primary bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+          />
+          <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 transition-colors" title="Зберегти">
+            <Check className="h-4 w-4" />
+          </button>
+          <button onClick={cancel} className="text-muted-foreground hover:text-foreground transition-colors" title="Скасувати">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : phone ? (
+        <div className="group/phone flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-muted/20 hover:border-border/70 transition-colors px-3 py-2.5">
+          <a
+            href={`tel:${phone.replace(/\s/g, "")}`}
+            className="flex items-center gap-2 text-sm text-foreground hover:text-primary hover:underline"
+            title="Подзвонити"
+          >
+            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {phone}
+          </a>
+          <button
+            onClick={startEdit}
+            className="text-muted-foreground/0 group-hover/phone:text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            title="Редагувати телефон"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={startEdit}
+          className="group/phone w-full text-left rounded-lg border border-border/40 bg-muted/20 hover:bg-muted/40 hover:border-border/70 transition-colors px-3 py-2.5 flex items-center gap-2"
+          title="Натисніть щоб додати телефон"
+        >
+          <p className="text-sm text-muted-foreground/50 italic">Не задано — натисніть щоб додати</p>
+          <Pencil className="h-3.5 w-3.5 text-muted-foreground/0 group-hover/phone:text-muted-foreground/50 transition-colors" />
         </button>
       )}
     </div>

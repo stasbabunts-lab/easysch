@@ -75,6 +75,7 @@ function timeToMin(t: string) {
 interface Props {
   students: StudentInfo[];
   weekStartsMonday: boolean;
+  showStudentPhone: boolean;
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -117,7 +118,10 @@ function groupByDate(slots: SlotData[]) {
   return map;
 }
 
-export function ScheduleManager({ students, weekStartsMonday }: Props) {
+export function ScheduleManager({ students: initialStudents, weekStartsMonday, showStudentPhone }: Props) {
+  // Local copy so a client quick-created from the picker shows up immediately.
+  const [students, setStudents] = useState<StudentInfo[]>(initialStudents);
+  useEffect(() => { setStudents(initialStudents); }, [initialStudents]);
   const [slots, setSlots] = useState<SlotData[]>([]);
   const [loading, setLoading] = useState(true);
   // Offset in weeks from today (0 = current 2-week window)
@@ -221,6 +225,12 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
   }, []);
 
   useEffect(() => { loadSlots(); }, [loadSlots]);
+
+  // A client quick-created from the picker — add to the local list so it's
+  // immediately selectable. router state on the schedule page refreshes on nav.
+  const handleStudentCreated = useCallback((student: StudentInfo) => {
+    setStudents((prev) => [...prev, student]);
+  }, []);
 
   // Compute visible date range (1 week window).
   // When weekStartsMonday is on, align the window to Monday; otherwise start from today.
@@ -665,6 +675,8 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
                   value={newSlot.studentId}
                   onChange={(id) => setNewSlot((s) => ({ ...s, studentId: id }))}
                   students={sortedStudents}
+                  onCreate={handleStudentCreated}
+                  showStudentPhone={showStudentPhone}
                 />
               </div>
             )}
@@ -861,6 +873,8 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
                     value={editState.studentId}
                     onChange={(id) => setEditState((s) => s && { ...s, studentId: id })}
                     students={sortedStudents}
+                    onCreate={handleStudentCreated}
+                    showStudentPhone={showStudentPhone}
                   />
                 </div>
               )}
@@ -917,14 +931,30 @@ export function ScheduleManager({ students, weekStartsMonday }: Props) {
 
 // ── Student picker with search ────────────────────────────────────────────────
 
-function StudentPicker({ value, onChange, students }: {
+function StudentPicker({ value, onChange, students, onCreate, showStudentPhone }: {
   value: string;
   onChange: (id: string) => void;
   students: StudentInfo[];
+  onCreate?: (student: StudentInfo) => void;
+  showStudentPhone?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Quick-create state
+  const [creating, setCreating] = useState(false);
+  const [cName, setCName] = useState("");
+  const [cPrice, setCPrice] = useState("");
+  const [cPhone, setCPhone] = useState("");
+  const [cSaving, setCSaving] = useState(false);
+
+  const resetCreate = useCallback(() => {
+    setCreating(false);
+    setCName("");
+    setCPrice("");
+    setCPhone("");
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -932,17 +962,49 @@ function StudentPicker({ value, onChange, students }: {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
         setSearch("");
+        resetCreate();
       }
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
+  }, [open, resetCreate]);
 
   const selected = students.find((s) => s.id === value);
   const sorted = [...students].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const filtered = search
     ? sorted.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
     : sorted;
+
+  async function submitCreate() {
+    const name = cName.trim();
+    const priceNum = Number(cPrice.replace(",", "."));
+    if (!name) { toast.error("Вкажіть ім'я"); return; }
+    if (isNaN(priceNum) || priceNum < 0) { toast.error("Вкажіть ціну заняття"); return; }
+    setCSaving(true);
+    try {
+      const res = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          lessonPrice: priceNum,
+          phone: showStudentPhone ? (cPhone.trim() || undefined) : undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const student = await res.json();
+      onCreate?.({ id: student.id, name: student.name, createdAt: student.createdAt });
+      onChange(student.id);
+      toast.success("Клієнта створено");
+      setOpen(false);
+      setSearch("");
+      resetCreate();
+    } catch {
+      toast.error("Помилка створення");
+    } finally {
+      setCSaving(false);
+    }
+  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -959,39 +1021,93 @@ function StudentPicker({ value, onChange, students }: {
 
       {open && (
         <div className="absolute z-50 w-full mt-1 rounded-md border border-border bg-popover shadow-md overflow-hidden">
-          <button
-            type="button"
-            className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-muted/50 ${!value ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground"}`}
-            onClick={() => { onChange(""); setOpen(false); setSearch(""); }}
-          >
-            — Вільно для запису —
-          </button>
-          <div className="border-t border-border/40 px-3 py-1.5">
-            <input
-              autoFocus
-              type="text"
-              placeholder="Пошук..."
-              className="w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground/50 py-0.5"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="border-t border-border/40 max-h-44 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-muted-foreground">Не знайдено</p>
-            ) : (
-              filtered.map((s) => (
+          {creating ? (
+            <div className="p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Новий клієнт</p>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Ім'я"
+                className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                value={cName}
+                onChange={(e) => setCName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitCreate(); if (e.key === "Escape") resetCreate(); }}
+              />
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Ціна заняття"
+                className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                value={cPrice}
+                onChange={(e) => setCPrice(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitCreate(); if (e.key === "Escape") resetCreate(); }}
+              />
+              {showStudentPhone && (
+                <input
+                  type="tel"
+                  placeholder="Телефон (за бажанням)"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  value={cPhone}
+                  onChange={(e) => setCPhone(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") submitCreate(); if (e.key === "Escape") resetCreate(); }}
+                />
+              )}
+              <div className="flex gap-2 pt-0.5">
+                <Button type="button" size="sm" className="flex-1 h-8" disabled={cSaving} onClick={submitCreate}>
+                  {cSaving ? "Створюємо..." : "Створити"}
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="h-8" disabled={cSaving} onClick={resetCreate}>
+                  Скасувати
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-muted/50 ${!value ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground"}`}
+                onClick={() => { onChange(""); setOpen(false); setSearch(""); }}
+              >
+                — Вільно для запису —
+              </button>
+              <div className="border-t border-border/40 px-3 py-1.5">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Пошук..."
+                  className="w-full text-sm bg-transparent outline-none placeholder:text-muted-foreground/50 py-0.5"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="border-t border-border/40 max-h-44 overflow-y-auto">
+                {filtered.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Не знайдено</p>
+                ) : (
+                  filtered.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-muted/50 ${value === s.id ? "bg-primary/10 text-primary font-medium" : ""}`}
+                      onClick={() => { onChange(s.id); setOpen(false); setSearch(""); }}
+                    >
+                      {s.name}
+                    </button>
+                  ))
+                )}
+              </div>
+              {onCreate && (
                 <button
-                  key={s.id}
                   type="button"
-                  className={`w-full px-3 py-2 text-sm text-left transition-colors hover:bg-muted/50 ${value === s.id ? "bg-primary/10 text-primary font-medium" : ""}`}
-                  onClick={() => { onChange(s.id); setOpen(false); setSearch(""); }}
+                  className="w-full border-t border-border/40 px-3 py-2 text-sm text-left text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-1.5"
+                  onClick={() => { setCreating(true); setCName(search); }}
                 >
-                  {s.name}
+                  <Plus className="h-3.5 w-3.5" /> Новий клієнт
                 </button>
-              ))
-            )}
-          </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

@@ -29,6 +29,7 @@ model Teacher {
   lessonNoun             String    @default("заняття") // word for "lesson" in the post-lesson message (e.g. урок, сесія, візит)
   subscriptionExpiresAt  DateTime? // null = never activated; set on registration (14-day trial)
   weekStartsMonday       Boolean   @default(false) // schedule view: align weeks to Monday, dim past days
+  showStudentPhone       Boolean   @default(false) // show an editable phone field in the client card
   referralSlug           String?   // marketing attribution: Campaign.slug captured at signup
 
   slots                AvailabilitySlot[]
@@ -104,6 +105,7 @@ model Student {
   code           String   @unique
   telegramId     String?
   telegramHandle String?
+  phone          String?  // optional contact phone; shown in card only when teacher.showStudentPhone
   lessonPrice              Int
   groupLessonPrice         Int?
   paymentOffset            Int

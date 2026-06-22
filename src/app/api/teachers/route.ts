@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, lessonNoun, telegramUsername, phone, paymentMinAmount, paymentMaxAmount, alias, weekStartsMonday } = body;
+  const { teacherReminderMinutes, studentReminderMinutes, name, displayName, paymentDetails, postLessonNote, lessonNoun, telegramUsername, phone, paymentMinAmount, paymentMaxAmount, alias, weekStartsMonday, showStudentPhone } = body;
 
   const data: Record<string, string | number | boolean | null> = {};
 
@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest) {
     data.alias = cleaned;
   }
   if (weekStartsMonday !== undefined) data.weekStartsMonday = Boolean(weekStartsMonday);
+  if (showStudentPhone !== undefined) data.showStudentPhone = Boolean(showStudentPhone);
 
   const updated = await prisma.teacher.update({
     where: { id: session.user.id },
@@ -72,6 +73,7 @@ export async function PATCH(req: NextRequest) {
       paymentMinAmount: true,
       paymentMaxAmount: true,
       weekStartsMonday: true,
+      showStudentPhone: true,
     },
   });
 
@@ -103,6 +105,7 @@ export async function GET() {
       paymentMinAmount: true,
       paymentMaxAmount: true,
       weekStartsMonday: true,
+      showStudentPhone: true,
     },
   });
 

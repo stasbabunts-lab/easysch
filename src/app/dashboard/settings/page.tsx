@@ -27,6 +27,7 @@ interface TeacherSettings {
   displayName: string;
   alias: string;
   weekStartsMonday: boolean;
+  showStudentPhone: boolean;
 }
 
 interface BankAccount {
@@ -49,6 +50,7 @@ export default function SettingsPage() {
     displayName: "",
     alias: "",
     weekStartsMonday: false,
+    showStudentPhone: false,
   });
   const [savingAlias, setSavingAlias] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
@@ -83,6 +85,7 @@ export default function SettingsPage() {
           displayName: data.displayName ?? "",
           alias: data.alias ?? "",
           weekStartsMonday: data.weekStartsMonday ?? false,
+          showStudentPhone: data.showStudentPhone ?? false,
         });
       })
       .catch(() => null);
@@ -204,6 +207,23 @@ export default function SettingsPage() {
       toast.error("Помилка збереження");
     } finally {
       setSavingWeekStart(false);
+    }
+  }
+
+  async function toggleShowStudentPhone() {
+    const next = !settings.showStudentPhone;
+    setSettings((s) => ({ ...s, showStudentPhone: next })); // optimistic
+    try {
+      const res = await fetch("/api/teachers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showStudentPhone: next }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Збережено");
+    } catch {
+      setSettings((s) => ({ ...s, showStudentPhone: !next })); // revert
+      toast.error("Помилка збереження");
     }
   }
 
@@ -398,6 +418,33 @@ export default function SettingsPage() {
               </p>
             </div>
             {settings.weekStartsMonday
+              ? <ToggleRight className="h-6 w-6 text-emerald-600 shrink-0" />
+              : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />}
+          </button>
+        </CardContent>
+      </Card>
+
+      {/* Client card */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Картка клієнта
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={toggleShowStudentPhone}
+            className="w-full flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex-1">
+              <p className="text-sm font-medium">Поле телефону</p>
+              <p className="text-xs text-muted-foreground">
+                Показувати телефон у картці клієнта.
+              </p>
+            </div>
+            {settings.showStudentPhone
               ? <ToggleRight className="h-6 w-6 text-emerald-600 shrink-0" />
               : <ToggleLeft className="h-6 w-6 text-muted-foreground shrink-0" />}
           </button>
