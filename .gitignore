@@ -66,3 +66,6 @@ __pycache__/
 /scripts/*.session-journal
 /scripts/.tg_finder*
 /scripts/telegram_channels.csv
+
+# Internal ops docs — never commit (contains server details)
+/CLAUDE.md
