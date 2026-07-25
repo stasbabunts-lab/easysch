@@ -99,7 +99,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json({ action: "updated", slots: updated });
   } else {
-    // Single slot update
+    // Single slot update. Editing just one occurrence of a recurring series
+    // (individual or group) detaches it into a standalone one-time lesson —
+    // e.g. a regular student is away, so this week's slot is freed/changed.
+    // Otherwise the occurrence would stay "weekly" (shown green publicly) and
+    // keep the series' student/attendees. Detaching a middle occurrence is safe:
+    // extendExpiringSeries only extends forward from the series' max date.
+    if (slot.isRecurring || slot.recurringGroupId) {
+      scalarData.isRecurring = false;
+      scalarData.recurringGroupId = null;
+    }
     if (Object.keys(scalarData).length > 0) {
       await prisma.availabilitySlot.update({ where: { id }, data: scalarData });
     }
