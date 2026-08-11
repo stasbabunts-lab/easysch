@@ -97,6 +97,12 @@ export default async function PublicSchedulePage({
           </div>
         </div>
 
+        {dates.length > 0 && (
+          <p className="text-center text-xs text-muted-foreground">
+            Час вказано за київським
+          </p>
+        )}
+
         {dates.length === 0 ? (
           <Card className="border-border/50">
             <CardContent className="py-12 text-center text-muted-foreground">

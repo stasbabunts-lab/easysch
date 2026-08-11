@@ -247,6 +247,7 @@ bot.command("lessons", async (ctx) => {
   const today = kyivToday();
   const in30Days = kyivDateOffset(30);
   const sections: string[] = [];
+  let hasAny = false;
 
   for (const [i, student] of students.entries()) {
     const slots = await prisma.availabilitySlot.findMany({
@@ -266,6 +267,7 @@ bot.command("lessons", async (ctx) => {
       sections.push(header + "Занять немає");
       continue;
     }
+    hasAny = true;
     const lines = slots.map((s) => {
       const d = new Date(s.date + "T12:00:00");
       const dateLabel = d.toLocaleDateString("uk-UA", { weekday: "short", day: "numeric", month: "short" });
@@ -274,7 +276,9 @@ bot.command("lessons", async (ctx) => {
     sections.push(header + lines.join("\n"));
   }
 
-  await ctx.reply(`📅 <b>Найближчі заняття</b>\n\n${sections.join("\n\n")}`, { parse_mode: "HTML" });
+  // One footer note instead of tagging every line — the list is dense enough.
+  const tzNote = hasAny ? "\n\n<i>Час київський</i>" : "";
+  await ctx.reply(`📅 <b>Найближчі заняття</b>\n\n${sections.join("\n\n")}${tzNote}`, { parse_mode: "HTML" });
 });
 
 // Teacher command: list their students
@@ -477,7 +481,7 @@ bot.command("next", async (ctx) => {
   const dateLabel = d.toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
   const specialistLine = students.length > 1 ? `\n👤 ${nearest.specialistName}` : "";
   await ctx.reply(
-    `📅 <b>Найближче заняття</b>\n\n${dateLabel}\n🕐 ${nearest.startTime}–${nearest.endTime}${specialistLine}`,
+    `📅 <b>Найближче заняття</b>\n\n${dateLabel}\n🕐 ${nearest.startTime}–${nearest.endTime} за київським часом${specialistLine}`,
     { parse_mode: "HTML" }
   );
 });

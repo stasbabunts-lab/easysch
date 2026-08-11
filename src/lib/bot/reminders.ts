@@ -46,7 +46,7 @@ export async function sendStudentLessonReminder(
   const text =
     `⏰ Нагадування про заняття\n\n` +
     `📅 ${date}\n` +
-    `🕐 ${time} (через ${timeLabel})\n` +
+    `🕐 ${time} за київським часом (через ${timeLabel})\n` +
     `👤 Спеціаліст: ${teacherName}\n` +
     `🔁 Тип: ${typeLabel}`;
   await sendTelegramMessage(telegramId, text);
