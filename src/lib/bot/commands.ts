@@ -1,4 +1,3 @@
-import type { Api } from "grammy";
 import { prisma } from "@/lib/prisma";
 import { resolveLessonNoun, adj, cap, FALLBACK_LESSON_NOUN, type LessonNoun } from "@/lib/lesson-noun";
 
@@ -94,19 +93,30 @@ export function commandsForRoles(roles: ChatRoles, fallbackNoun: LessonNoun): Co
 const synced = new Set<string>();
 
 /**
- * Push the role-matched menu for one chat. Called after every link/unlink and
- * once per chat per process, so long-linked users get their menu fixed the
- * first time they touch the bot after a deploy — no migration needed.
+ * Push the role-matched menu for one chat. Called after every link/unlink, on
+ * the chat's first update after a deploy, and from the 5-min cron for every
+ * linked specialist — the last one matters because a specialist who never
+ * writes to the bot would otherwise keep the client-only default menu.
+ *
+ * Plain fetch rather than the grammY Api so the cron path does not have to
+ * construct a Bot instance.
  */
-export async function syncChatCommands(api: Api, chatId: string, force = false): Promise<void> {
+export async function syncChatCommands(chatId: string, force = false): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
   if (!force && synced.has(chatId)) return;
   synced.add(chatId);
   try {
     const roles = await getChatRoles(chatId);
-    await api.setMyCommands(commandsForRoles(roles, FALLBACK_LESSON_NOUN), {
-      scope: { type: "chat", chat_id: Number(chatId) },
+    await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        commands: commandsForRoles(roles, FALLBACK_LESSON_NOUN),
+        scope: { type: "chat", chat_id: Number(chatId) },
+      }),
     });
   } catch {
-    // A stale chat id or a rate limit must never break the update being handled.
+    // A stale chat id or a rate limit must never break the caller.
   }
 }

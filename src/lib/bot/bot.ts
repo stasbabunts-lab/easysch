@@ -111,7 +111,7 @@ function registerHandlers(bot: Bot) {
 // explicitly after each link/unlink below.
 bot.use(async (ctx, next) => {
   const chatId = ctx.chat?.id;
-  if (chatId) void syncChatCommands(ctx.api, String(chatId));
+  if (chatId) void syncChatCommands(String(chatId));
   await next();
 });
 
@@ -181,7 +181,7 @@ bot.command("start", async (ctx) => {
       where: { id: teacher.id },
       data: { telegramChatId: telegramId },
     });
-    await syncChatCommands(ctx.api, telegramId, true);
+    await syncChatCommands(telegramId, true);
     const noun = resolveLessonNoun(teacher.lessonNoun);
     await ctx.reply(
       `✅ Готово! Ви прив'язали Telegram як спеціаліст <b>${tName(teacher)}</b>.\n\n` +
@@ -238,7 +238,7 @@ bot.command("start", async (ctx) => {
   }
 
   const allLinked = await prisma.student.count({ where: { telegramId } });
-  await syncChatCommands(ctx.api, telegramId, true);
+  await syncChatCommands(telegramId, true);
   const noun = resolveLessonNoun(student.teacher.lessonNoun);
 
   await ctx.reply(
@@ -664,7 +664,7 @@ bot.command("unlink", async (ctx) => {
     where: { id: student.id },
     data: { telegramId: null, telegramHandle: null },
   });
-  await syncChatCommands(ctx.api, telegramId, true);
+  await syncChatCommands(telegramId, true);
 
   await ctx.reply(
     `✅ Розклад <b>${tName(student.teacher)}</b> відв'язано. Повідомлення більше не будуть надходити.`,

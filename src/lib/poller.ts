@@ -15,6 +15,7 @@ import { logNotification } from "./bot/notification-log";
 import { formatAmount } from "./payment-offset";
 import { kyivNow, kyivToday } from "./time";
 import { resolveLessonNoun, adj } from "./lesson-noun";
+import { syncChatCommands } from "./bot/commands";
 
 /** How many lessons one prepayment may cover — the ceiling of the exact-sum grid. */
 const MAX_PREPAID_LESSONS = 24;
@@ -86,6 +87,10 @@ export async function pollPayments(teacherId: string): Promise<number> {
   // The teacher's own word for a lesson — used in every message we send out and
   // in the fallback log lines below.
   const lessonNoun = resolveLessonNoun(teacher.lessonNoun);
+
+  // Keep the specialist's Telegram menu in step with their role and their word
+  // for a lesson. No-ops after the first run of each process.
+  if (teacher.telegramChatId) await syncChatCommands(teacher.telegramChatId);
 
   const since = teacher.lastPolledAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
