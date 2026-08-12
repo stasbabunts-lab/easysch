@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# Registers the bot's command menu (the "/" / Menu list shown in Telegram).
+# Registers the bot's DEFAULT command menu (the "/" / Menu list in Telegram).
+#
+# This list is only the fallback for chats we have not seen yet, so it holds the
+# common + client commands — a fresh chat is almost always a client about to
+# enter their code, and specialist commands would just be noise they cannot use.
+# Linked chats get a role-matched list pushed per chat by syncChatCommands()
+# in src/lib/bot/commands.ts (both blocks at once for a specialist who is also
+# somebody's client).
+#
 # Telegram stores this server-side until changed — re-run this whenever the
 # command list changes. Reads TELEGRAM_BOT_TOKEN from the env files (Next.js
 # precedence: .env.local overrides .env).
@@ -17,20 +25,17 @@ curl -s -X POST "https://api.telegram.org/bot${TOKEN}/setMyCommands" \
   -H "Content-Type: application/json" \
   --data-binary @- <<'JSON'
 {
+  "scope": {"type": "default"},
   "commands": [
     {"command": "start",      "description": "Підключити бот за кодом"},
     {"command": "help",       "description": "Усі команди"},
-    {"command": "today",      "description": "Сьогоднішні заняття (спеціаліст)"},
-    {"command": "week",       "description": "Заняття на 7 днів (спеціаліст)"},
-    {"command": "debts",      "description": "Клієнти з боргом (спеціаліст)"},
-    {"command": "mystudents", "description": "Список клієнтів (спеціаліст)"},
-    {"command": "support",    "description": "Підтримка (спеціаліст)"},
-    {"command": "next",       "description": "Найближче заняття (клієнт)"},
-    {"command": "lessons",    "description": "Заняття на місяць (клієнт)"},
-    {"command": "balance",    "description": "Ваш баланс (клієнт)"},
-    {"command": "pay",        "description": "Реквізити для оплати (клієнт)"},
-    {"command": "my",         "description": "Ваші спеціалісти (клієнт)"},
-    {"command": "unlink",     "description": "Відписатися від спеціаліста (клієнт)"}
+    {"command": "support",    "description": "Зв'язатися з підтримкою"},
+    {"command": "next",       "description": "Найближче заняття"},
+    {"command": "lessons",    "description": "Заняття на місяць"},
+    {"command": "balance",    "description": "Ваш баланс"},
+    {"command": "pay",        "description": "Реквізити для оплати"},
+    {"command": "my",         "description": "Ваші спеціалісти"},
+    {"command": "unlink",     "description": "Відписатися від спеціаліста"}
   ]
 }
 JSON

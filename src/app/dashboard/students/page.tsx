@@ -12,6 +12,7 @@ import { PaymentReminderToggle } from "@/components/students/PaymentReminderTogg
 import { StudentSearch } from "@/components/students/StudentSearch";
 import { StudentArchive } from "@/components/students/StudentArchive";
 import { GuideButton } from "@/components/layout/GuideButton";
+import { resolveLessonNoun, countNoun, adj } from "@/lib/lesson-noun";
 
 export default async function StudentsPage({
   searchParams,
@@ -42,6 +43,12 @@ export default async function StudentsPage({
     select: { id: true, name: true, paymentOffset: true, _count: { select: { lessons: true } } },
   });
 
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: session.user.id },
+    select: { lessonNoun: true },
+  });
+  const noun = resolveLessonNoun(teacher?.lessonNoun);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -53,7 +60,13 @@ export default async function StudentsPage({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <GuideButton />
-          <AddStudentDialog />
+          <AddStudentDialog
+            noun={{
+              gen: noun.gen,
+              plural: noun.plural,
+              groupGen: `${adj("group", noun, "gen")} ${noun.gen}`,
+            }}
+          />
         </div>
       </div>
 
@@ -98,9 +111,9 @@ export default async function StudentsPage({
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{s.name}</p>
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        <InlinePriceEdit studentId={s.id} lessonPrice={s.lessonPrice} />
+                        <InlinePriceEdit studentId={s.id} lessonPrice={s.lessonPrice} unitLabel={noun.nom} />
                         <span className="text-xs text-muted-foreground/50">·</span>
-                        <span className="text-xs text-muted-foreground">{s._count.lessons} занять</span>
+                        <span className="text-xs text-muted-foreground">{countNoun(s._count.lessons, noun)}</span>
                       </div>
                       <div className="mt-1.5">
                         <PaymentReminderToggle studentId={s.id} enabled={s.sendPaymentReminder} />
@@ -110,7 +123,7 @@ export default async function StudentsPage({
                     {/* Right column */}
                     <div className="shrink-0 flex flex-col items-end gap-1.5">
                       <div className="flex items-center gap-1.5">
-                        <StudentInviteButton name={s.name} code={s.code} />
+                        <StudentInviteButton name={s.name} code={s.code} nounPlural={noun.plural} />
                         <StudentCodeBadge code={s.code} />
                       </div>
                       {s.telegramId ? (
@@ -143,6 +156,8 @@ export default async function StudentsPage({
             paymentOffset: s.paymentOffset,
             lessonCount: s._count.lessons,
           }))}
+          nounPlural={noun.plural}
+          nounGenPl={noun.genPl}
         />
       )}
     </div>

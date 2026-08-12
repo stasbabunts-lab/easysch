@@ -10,8 +10,14 @@ import { Label } from "@/components/ui/label";
 import {
   Copy, Check, ExternalLink, Bell, MessageCircle,
   Building2, ShieldCheck, Plus, Trash2, Eye, EyeOff,
-  Info, ToggleLeft, ToggleRight, Phone, CalendarDays,
+  Info, ToggleLeft, ToggleRight, Phone, CalendarDays, BookOpen,
 } from "lucide-react";
+import {
+  LESSON_NOUNS,
+  DEFAULT_LESSON_NOUN_KEY,
+  resolveLessonNoun,
+  cap,
+} from "@/lib/lesson-noun";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { APP_NAME } from "@/lib/labels";
 import { BANK_OPTIONS, ALL_BANK_OPTIONS } from "@/lib/bank";
@@ -28,6 +34,7 @@ interface TeacherSettings {
   alias: string;
   weekStartsMonday: boolean;
   showStudentPhone: boolean;
+  lessonNoun: string;
 }
 
 interface BankAccount {
@@ -51,6 +58,7 @@ export default function SettingsPage() {
     alias: "",
     weekStartsMonday: false,
     showStudentPhone: false,
+    lessonNoun: DEFAULT_LESSON_NOUN_KEY,
   });
   const [savingAlias, setSavingAlias] = useState(false);
   const [savingContacts, setSavingContacts] = useState(false);
@@ -86,6 +94,7 @@ export default function SettingsPage() {
           alias: data.alias ?? "",
           weekStartsMonday: data.weekStartsMonday ?? false,
           showStudentPhone: data.showStudentPhone ?? false,
+          lessonNoun: data.lessonNoun ?? DEFAULT_LESSON_NOUN_KEY,
         });
       })
       .catch(() => null);
@@ -207,6 +216,23 @@ export default function SettingsPage() {
       toast.error("Помилка збереження");
     } finally {
       setSavingWeekStart(false);
+    }
+  }
+
+  async function saveLessonNoun(key: string) {
+    const previous = settings.lessonNoun;
+    setSettings((s) => ({ ...s, lessonNoun: key })); // optimistic
+    try {
+      const res = await fetch("/api/teachers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonNoun: key }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Збережено");
+    } catch {
+      setSettings((s) => ({ ...s, lessonNoun: previous })); // revert
+      toast.error("Помилка збереження");
     }
   }
 
@@ -424,6 +450,47 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* What to call the meetings */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Як називати ваші зустрічі
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <select
+            value={
+              resolveLessonNoun(settings.lessonNoun).key === "custom"
+                ? settings.lessonNoun
+                : resolveLessonNoun(settings.lessonNoun).key
+            }
+            onChange={(e) => saveLessonNoun(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {resolveLessonNoun(settings.lessonNoun).key === "custom" && (
+              <option value={settings.lessonNoun}>{settings.lessonNoun} (власне слово)</option>
+            )}
+            {LESSON_NOUNS.map((n) => (
+              <option key={n.key} value={n.key}>{cap(n.nom)}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Слово підставляється в усі повідомлення клієнтам, у команди бота і в кабінет — у потрібному відмінку.
+          </p>
+          {(() => {
+            const n = resolveLessonNoun(settings.lessonNoun);
+            return (
+              <div className="rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-xs leading-6 text-muted-foreground space-y-0.5">
+                <p>⏰ Нагадування про <b className="text-foreground">{n.acc}</b></p>
+                <p>Ви завершили <b className="text-foreground">{n.acc}</b>, будь ласка, сплатіть 800,01 на рахунок…</p>
+                <p>📅 Найближчі <b className="text-foreground">{n.plural}</b> · Проведено <b className="text-foreground">{n.genPl}</b></p>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
       {/* Client card */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -589,7 +656,7 @@ export default function SettingsPage() {
         <CardContent>
           <form onSubmit={saveReminderSettings} className="space-y-4">
             <div className="space-y-2">
-              <Label>Нагадування для вас (хвилин до заняття)</Label>
+              <Label>Нагадування для вас (хвилин до {resolveLessonNoun(settings.lessonNoun).gen})</Label>
               <Input value={settings.teacherReminderMinutes} placeholder="60, 1440"
                 onChange={(e) => setSettings((s) => ({ ...s, teacherReminderMinutes: e.target.value }))} />
               <p className="text-xs text-muted-foreground">
@@ -597,7 +664,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label>Нагадування для клієнтів (хвилин до заняття)</Label>
+              <Label>Нагадування для клієнтів (хвилин до {resolveLessonNoun(settings.lessonNoun).gen})</Label>
               <Input value={settings.studentReminderMinutes} placeholder="60"
                 onChange={(e) => setSettings((s) => ({ ...s, studentReminderMinutes: e.target.value }))} />
             </div>

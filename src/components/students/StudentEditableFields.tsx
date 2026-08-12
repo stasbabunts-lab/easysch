@@ -15,7 +15,11 @@ interface Props {
 
 // ── Inline price ───────────────────────────────────────────────────────────────
 
-function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice: number }) {
+function PriceField({
+  studentId,
+  lessonPrice,
+  unitLabel = "заняття",
+}: { studentId: string; lessonPrice: number; unitLabel?: string }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(lessonPrice / 100));
@@ -73,7 +77,7 @@ function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice
           disabled={saving}
           className="w-24 h-7 px-2 text-sm font-semibold border border-primary rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
-        <span className="text-sm text-muted-foreground">/ заняття</span>
+        <span className="text-sm text-muted-foreground">/ {unitLabel}</span>
         <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 transition-colors" title="Зберегти">
           <Check className="h-4 w-4" />
         </button>
@@ -93,7 +97,7 @@ function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice
       <span className="text-sm font-semibold text-foreground underline decoration-dashed decoration-muted-foreground/40 underline-offset-2">
         {formatAmount(lessonPrice)}
       </span>
-      <span className="text-sm text-muted-foreground">/ заняття</span>
+      <span className="text-sm text-muted-foreground">/ {unitLabel}</span>
       <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover/price:text-muted-foreground transition-colors" />
     </button>
   );
@@ -101,7 +105,12 @@ function PriceField({ studentId, lessonPrice }: { studentId: string; lessonPrice
 
 // ── Inline group price ─────────────────────────────────────────────────────────
 
-export function GroupPriceField({ studentId, groupLessonPrice }: { studentId: string; groupLessonPrice: number | null }) {
+export function GroupPriceField({
+  studentId,
+  groupLessonPrice,
+  /** Genitive phrase for one group meeting: "групового заняття", "групової консультації". */
+  groupUnitGen = "групового заняття",
+}: { studentId: string; groupLessonPrice: number | null; groupUnitGen?: string }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(groupLessonPrice ? String(groupLessonPrice / 100) : "");
@@ -131,7 +140,7 @@ export function GroupPriceField({ studentId, groupLessonPrice }: { studentId: st
         body: JSON.stringify({ groupLessonPrice: num }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Ціну групового заняття оновлено");
+      toast.success(`Ціну ${groupUnitGen} оновлено`);
       setEditing(false);
       router.refresh();
     } catch {
@@ -176,7 +185,7 @@ export function GroupPriceField({ studentId, groupLessonPrice }: { studentId: st
     <button
       onClick={startEdit}
       className="group/gprice inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 -mx-2 hover:bg-muted/60 transition-colors"
-      title="Натисніть щоб змінити ціну групового заняття"
+      title={`Натисніть щоб змінити ціну ${groupUnitGen}`}
     >
       <span className="text-sm font-semibold text-foreground underline decoration-dashed decoration-muted-foreground/40 underline-offset-2">
         {groupLessonPrice ? formatAmount(groupLessonPrice) : "—"}

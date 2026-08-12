@@ -16,7 +16,12 @@ import {
 import { Plus, UserCheck } from "lucide-react";
 import { StudentInviteBody } from "./StudentInvite";
 
-export function AddStudentDialog() {
+export function AddStudentDialog({
+  noun = { gen: "заняття", plural: "заняття", groupGen: "групового заняття" },
+}: {
+  /** Teacher's word for a meeting — genitive / plural / genitive of a group one. */
+  noun?: { gen: string; plural: string; groupGen: string };
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -81,11 +86,11 @@ export function AddStudentDialog() {
                   <Input name="name" placeholder="Анна Петренко" required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Ціна заняття</Label>
+                  <Label>Ціна {noun.gen}</Label>
                   <Input name="lessonPrice" type="number" min="0" step="1" placeholder="1500" required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Ціна групового заняття <span className="text-muted-foreground font-normal">(необов&apos;язково)</span></Label>
+                  <Label>Ціна {noun.groupGen} <span className="text-muted-foreground font-normal">(необов&apos;язково)</span></Label>
                   <Input name="groupLessonPrice" type="number" min="1" step="1" placeholder="800" />
                 </div>
                 <div className="space-y-2">
@@ -109,7 +114,7 @@ export function AddStudentDialog() {
               </DialogHeader>
 
               <div className="space-y-4">
-                <StudentInviteBody code={studentCode} />
+                <StudentInviteBody code={studentCode} nounPlural={noun.plural} />
                 <Button
                   variant="ghost"
                   className="w-full"

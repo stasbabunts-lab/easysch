@@ -10,6 +10,7 @@ import { StudentActions } from "@/components/students/StudentActions";
 import { PriceField, GroupPriceField, NotesField, PaymentDetailsField, PhoneField } from "@/components/students/StudentEditableFields";
 import { PaymentReminderToggle } from "@/components/students/PaymentReminderToggle";
 import { MessageCircle } from "lucide-react";
+import { resolveLessonNoun, adj, cap } from "@/lib/lesson-noun";
 
 function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("uk-UA", {
@@ -57,7 +58,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     }),
     prisma.teacher.findUnique({
       where: { id: session.user.id },
-      select: { paymentDetails: true, showStudentPhone: true },
+      select: { paymentDetails: true, showStudentPhone: true, lessonNoun: true },
     }),
   ]);
 
@@ -102,6 +103,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     .filter((r) => r.fulfilledBy === null)
     .reduce((s, r) => s + r.amountBase, 0);
 
+  const noun = resolveLessonNoun(teacher?.lessonNoun);
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
@@ -113,8 +116,12 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           <div className="space-y-1 min-w-0">
             <h1 className="text-xl md:text-2xl font-bold truncate">{student.name}</h1>
             <div className="flex items-center gap-3 flex-wrap">
-              <PriceField studentId={student.id} lessonPrice={student.lessonPrice} />
-              <GroupPriceField studentId={student.id} groupLessonPrice={student.groupLessonPrice} />
+              <PriceField studentId={student.id} lessonPrice={student.lessonPrice} unitLabel={noun.nom} />
+              <GroupPriceField
+                studentId={student.id}
+                groupLessonPrice={student.groupLessonPrice}
+                groupUnitGen={`${adj("group", noun, "gen")} ${noun.gen}`}
+              />
               {student.telegramId && (
                 <span className="flex items-center gap-1 text-xs text-primary">
                   <MessageCircle className="h-3 w-3" /> Telegram
@@ -124,7 +131,17 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
         </div>
-        <StudentActions student={student} hasPaymentDetails={!!student.paymentDetails || !!teacher?.paymentDetails} bankConnected={bankConnected} />
+        <StudentActions
+          student={student}
+          hasPaymentDetails={!!student.paymentDetails || !!teacher?.paymentDetails}
+          bankConnected={bankConnected}
+          noun={{
+            nom: noun.nom,
+            gen: noun.gen,
+            plural: noun.plural,
+            eachGen: `${adj("each", noun, "gen")} ${noun.gen}`,
+          }}
+        />
       </div>
 
       {/* Phone — only when enabled in settings */}
@@ -154,7 +171,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         </Card>
         <Card className="border-border/50">
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground">Проведено занять</p>
+            <p className="text-xs text-muted-foreground">Проведено {noun.genPl}</p>
             <p className="text-2xl font-bold mt-1">{conductedCount}</p>
           </CardContent>
         </Card>
@@ -171,11 +188,11 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       {/* Борги — full-width */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Борги (проведені заняття)</CardTitle>
+          <CardTitle className="text-base">Борги (проведені {noun.plural})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {conductedLessons.length === 0 ? (
-            <p className="text-sm text-muted-foreground px-6 pb-5">Занять ще не проведено</p>
+            <p className="text-sm text-muted-foreground px-6 pb-5">{cap(noun.genPl)} ще не проведено</p>
           ) : (
             <div className="max-h-72 overflow-y-auto">
               {conductedLessons.map((lesson) => (

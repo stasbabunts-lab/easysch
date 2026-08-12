@@ -4,6 +4,14 @@ import { formatAmount } from "@/lib/format";
 import { sendTelegramMessage } from "@/lib/bot/reminders";
 import { getStudentBalance } from "@/lib/balance";
 import { kyivToday, kyivDateOffset } from "@/lib/time";
+import { getChatRoles, syncChatCommands } from "@/lib/bot/commands";
+import {
+  resolveLessonNoun,
+  adj,
+  cap,
+  FALLBACK_LESSON_NOUN,
+  type LessonNoun,
+} from "@/lib/lesson-noun";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 // Where teacher support messages are delivered (admin's Telegram chat id).
@@ -24,6 +32,30 @@ export { getBot as bot };
 /** Returns displayName if set, otherwise name */
 function tName(teacher: { name: string; displayName?: string | null }) {
   return teacher.displayName?.trim() || teacher.name;
+}
+
+/**
+ * Wrong-role replies. A chat can hold both roles at once, so "you are not
+ * linked" is only true for a stranger — a linked client asking for /today has
+ * already entered a code and should be pointed at their own commands instead.
+ */
+async function replyTeacherOnly(ctx: Context) {
+  const linked = await prisma.student.count({ where: { telegramId: String(ctx.from!.id) } });
+  await ctx.reply(
+    linked > 0
+      ? "ℹ️ Ця команда лише для спеціалістів.\n\nВаші команди: /next, /lessons, /balance, /pay, /my"
+      : "❌ Ви не прив'язані як спеціаліст. Введіть /start ВАШ_КОД"
+  ).catch(() => null);
+}
+
+async function replyClientOnly(ctx: Context) {
+  const isTeacher = await prisma.teacher.count({ where: { telegramChatId: String(ctx.from!.id) } });
+  await ctx.reply(
+    isTeacher > 0
+      ? "ℹ️ Ця команда для клієнтів. Ви прив'язані як спеціаліст.\n\nВаші команди: /today, /week, /debts, /mystudents\n\n" +
+          "Щоб додатково стати клієнтом іншого спеціаліста — надішліть /start з кодом клієнта."
+      : "❌ Ви не прив'язані. Введіть /start ВАШ_КОД"
+  ).catch(() => null);
 }
 
 /** Escape user-provided text before embedding it in an HTML-parsed message. */
@@ -74,28 +106,52 @@ async function relaySupportMessage(ctx: Context, text: string): Promise<void> {
 
 function registerHandlers(bot: Bot) {
 
-// ── /help — full command list (also populates the bot's "/" menu) ───────────────
-const HELP_TEXT =
-  "📋 <b>Усі команди</b>\n\n" +
-  "🔗 <b>Загальні</b>\n" +
-  "/start КОД — підключити бот\n" +
-  "/help — цей список\n\n" +
-  "👤 <b>Для спеціалістів</b>\n" +
-  "/today — заняття сьогодні\n" +
-  "/week — заняття на 7 днів\n" +
-  "/debts — клієнти з боргом\n" +
-  "/mystudents — список клієнтів\n" +
-  "/support — зв'язатися з підтримкою\n\n" +
-  "🎓 <b>Для клієнтів</b>\n" +
-  "/next — найближче заняття\n" +
-  "/lessons — заняття на місяць\n" +
-  "/balance — ваш баланс\n" +
-  "/pay — реквізити для оплати\n" +
-  "/my — ваші спеціалісти\n" +
-  "/unlink КОД — відписатися від спеціаліста";
+// Keep every chat's "/" menu in step with its roles: once per chat per process
+// (so users linked long ago are fixed the first time they touch the bot), and
+// explicitly after each link/unlink below.
+bot.use(async (ctx, next) => {
+  const chatId = ctx.chat?.id;
+  if (chatId) void syncChatCommands(ctx.api, String(chatId));
+  await next();
+});
 
+function teacherHelpBlock(noun: LessonNoun) {
+  return (
+    "👤 <b>Для спеціалістів</b>\n" +
+    `/today — ${noun.plural} сьогодні\n` +
+    `/week — ${noun.plural} на 7 днів\n` +
+    "/debts — клієнти з боргом\n" +
+    "/mystudents — список клієнтів"
+  );
+}
+
+function clientHelpBlock(noun: LessonNoun) {
+  return (
+    "🎓 <b>Для клієнтів</b>\n" +
+    `/next — ${adj("nearest", noun)} ${noun.nom}\n` +
+    `/lessons — ${noun.plural} на місяць\n` +
+    "/balance — ваш баланс\n" +
+    "/pay — реквізити для оплати\n" +
+    "/my — ваші спеціалісти\n" +
+    "/unlink КОД — відписатися від спеціаліста"
+  );
+}
+
+// ── /help — the command list for whoever is asking ──────────────────────────────
 bot.command("help", async (ctx) => {
-  await ctx.reply(HELP_TEXT, { parse_mode: "HTML" }).catch(() => null);
+  const roles = await getChatRoles(String(ctx.from!.id));
+  const blocks = [
+    "📋 <b>Усі команди</b>",
+    "🔗 <b>Загальні</b>\n" +
+      "/start КОД — підключити бот\n" +
+      "/help — цей список\n" +
+      "/support — зв'язатися з підтримкою",
+  ];
+  if (roles.isTeacher) blocks.push(teacherHelpBlock(roles.teacherNoun ?? FALLBACK_LESSON_NOUN));
+  if (roles.isClient || !roles.isTeacher) {
+    blocks.push(clientHelpBlock(roles.clientNoun ?? FALLBACK_LESSON_NOUN));
+  }
+  await ctx.reply(blocks.join("\n\n"), { parse_mode: "HTML" }).catch(() => null);
 });
 
 bot.command("start", async (ctx) => {
@@ -125,16 +181,18 @@ bot.command("start", async (ctx) => {
       where: { id: teacher.id },
       data: { telegramChatId: telegramId },
     });
+    await syncChatCommands(ctx.api, telegramId, true);
+    const noun = resolveLessonNoun(teacher.lessonNoun);
     await ctx.reply(
       `✅ Готово! Ви прив'язали Telegram як спеціаліст <b>${tName(teacher)}</b>.\n\n` +
-        `Тепер ви будете отримувати нагадування про заняття.\n\n` +
+        `Тепер ви будете отримувати нагадування про ${noun.plural}.\n\n` +
         `Команди:\n` +
-        `/today — заняття сьогодні\n` +
-        `/week — заняття на 7 днів\n` +
+        `/today — ${noun.plural} сьогодні\n` +
+        `/week — ${noun.plural} на 7 днів\n` +
         `/debts — клієнти з боргом\n` +
         `/mystudents — список клієнтів\n` +
         `/support — зв'язатися з підтримкою\n\n` +
-        `💡 Ви також можете бути учнем інших спеціалістів — просто надішліть /start з кодом учня, який вам дасть ваш спеціаліст.`,
+        `💡 Ви також можете бути клієнтом інших спеціалістів — просто надішліть /start з кодом клієнта, який вам дасть ваш спеціаліст. Обидва набори команд працюватимуть разом.`,
       { parse_mode: "HTML" }
     );
     return;
@@ -143,7 +201,7 @@ bot.command("start", async (ctx) => {
   // ── Look up by STUDENT code ───────────────────────────────────────
   const student = await prisma.student.findUnique({
     where: { code: args },
-    include: { teacher: { select: { name: true, displayName: true, telegramChatId: true } } },
+    include: { teacher: { select: { name: true, displayName: true, telegramChatId: true, lessonNoun: true } } },
   });
 
   if (!student) {
@@ -180,13 +238,15 @@ bot.command("start", async (ctx) => {
   }
 
   const allLinked = await prisma.student.count({ where: { telegramId } });
+  await syncChatCommands(ctx.api, telegramId, true);
+  const noun = resolveLessonNoun(student.teacher.lessonNoun);
 
   await ctx.reply(
     `✅ Додано розклад <b>${tName(student.teacher)}</b>!\n\n` +
       (allLinked > 1 ? `Усього спеціалістів: ${allLinked}. Список: /my\n\n` : "") +
       `Команди:\n` +
-      `/next — найближче заняття\n` +
-      `/lessons — заняття на місяць\n` +
+      `/next — ${adj("nearest", noun)} ${noun.nom}\n` +
+      `/lessons — ${noun.plural} на місяць\n` +
       `/balance — ваш баланс\n` +
       `/pay — реквізити для оплати\n` +
       `/my — ваші спеціалісти`,
@@ -198,7 +258,7 @@ bot.command("start", async (ctx) => {
 async function getLinkedStudents(telegramId: string) {
   return prisma.student.findMany({
     where: { telegramId },
-    include: { teacher: { select: { name: true, displayName: true, paymentDetails: true } } },
+    include: { teacher: { select: { name: true, displayName: true, paymentDetails: true, lessonNoun: true } } },
     orderBy: { createdAt: "asc" },
   });
 }
@@ -207,13 +267,24 @@ function specialistHeader(name: string, total: number, idx: number) {
   return total > 1 ? `👤 <b>${name}</b>\n` : "";
 }
 
+/**
+ * Word for a message that spans every linked specialist. They may each use a
+ * different one, and no single header can be right then — fall back to the
+ * neutral default instead of borrowing somebody's word.
+ */
+function sharedNoun(students: { teacher: { lessonNoun: string } }[]): LessonNoun {
+  const nouns = students.map((s) => resolveLessonNoun(s.teacher.lessonNoun));
+  const first = nouns[0] ?? FALLBACK_LESSON_NOUN;
+  return nouns.every((n) => n.key === first.key) ? first : FALLBACK_LESSON_NOUN;
+}
+
 // ── Student: /balance ──────────────────────────────────────────────────────────
 bot.command("balance", async (ctx) => {
   const telegramId = String(ctx.from!.id);
   const students = await getLinkedStudents(telegramId);
 
   if (students.length === 0) {
-    await ctx.reply("❌ Ви не прив'язані. Введіть /start ВАШ_КОД");
+    await replyClientOnly(ctx);
     return;
   }
 
@@ -224,7 +295,7 @@ bot.command("balance", async (ctx) => {
     let balanceLine: string;
     if (credit > 0) balanceLine = `✅ Баланс: +${formatAmount(credit)}`;
     else if (debt > 0) balanceLine = `🔴 Заборгованість: ${formatAmount(debt)}`;
-    else balanceLine = `✅ Баланс: 0`;
+    else balanceLine = `✅ Баланс: ${formatAmount(0)} — заборгованості немає`;
 
     sections.push(
       specialistHeader(tName(student.teacher), students.length, i) + balanceLine
@@ -240,7 +311,7 @@ bot.command("lessons", async (ctx) => {
   const students = await getLinkedStudents(telegramId);
 
   if (students.length === 0) {
-    await ctx.reply("❌ Ви не прив'язані. Введіть /start ВАШ_КОД");
+    await replyClientOnly(ctx);
     return;
   }
 
@@ -264,7 +335,7 @@ bot.command("lessons", async (ctx) => {
     });
     const header = specialistHeader(tName(student.teacher), students.length, i);
     if (slots.length === 0) {
-      sections.push(header + "Занять немає");
+      sections.push(header + `${cap(resolveLessonNoun(student.teacher.lessonNoun).genPl)} немає`);
       continue;
     }
     hasAny = true;
@@ -278,7 +349,10 @@ bot.command("lessons", async (ctx) => {
 
   // One footer note instead of tagging every line — the list is dense enough.
   const tzNote = hasAny ? "\n\n<i>Час київський</i>" : "";
-  await ctx.reply(`📅 <b>Найближчі заняття</b>\n\n${sections.join("\n\n")}${tzNote}`, { parse_mode: "HTML" });
+  await ctx.reply(
+    `📅 <b>Найближчі ${sharedNoun(students).plural}</b>\n\n${sections.join("\n\n")}${tzNote}`,
+    { parse_mode: "HTML" }
+  );
 });
 
 // Teacher command: list their students
@@ -290,7 +364,7 @@ bot.command("mystudents", async (ctx) => {
   });
 
   if (!teacher) {
-    await ctx.reply("❌ Ви не прив'язані як спеціаліст. Введіть /start ВАШ_КОД");
+    await replyTeacherOnly(ctx);
     return;
   }
 
@@ -308,7 +382,7 @@ bot.command("today", async (ctx) => {
   const telegramId = String(ctx.from!.id);
   const teacher = await prisma.teacher.findFirst({ where: { telegramChatId: telegramId } });
   if (!teacher) {
-    await ctx.reply("❌ Ви не прив'язані як спеціаліст. Введіть /start ВАШ_КОД");
+    await replyTeacherOnly(ctx);
     return;
   }
 
@@ -327,8 +401,10 @@ bot.command("today", async (ctx) => {
     orderBy: { startTime: "asc" },
   });
 
+  const noun = resolveLessonNoun(teacher.lessonNoun);
+
   if (slots.length === 0) {
-    await ctx.reply("📅 Сьогодні занять немає.");
+    await ctx.reply(`📅 Сьогодні ${noun.genPl} немає.`);
     return;
   }
 
@@ -339,7 +415,7 @@ bot.command("today", async (ctx) => {
     }
     return `• ${s.startTime}–${s.endTime} — <b>${s.student!.name}</b>`;
   });
-  await ctx.reply(`📅 <b>Заняття сьогодні</b>\n\n${lines.join("\n")}`, { parse_mode: "HTML" });
+  await ctx.reply(`📅 <b>${cap(noun.plural)} сьогодні</b>\n\n${lines.join("\n")}`, { parse_mode: "HTML" });
 });
 
 // ── Teacher: /week ─────────────────────────────────────────────────────────────
@@ -347,7 +423,7 @@ bot.command("week", async (ctx) => {
   const telegramId = String(ctx.from!.id);
   const teacher = await prisma.teacher.findFirst({ where: { telegramChatId: telegramId } });
   if (!teacher) {
-    await ctx.reply("❌ Ви не прив'язані як спеціаліст. Введіть /start ВАШ_КОД");
+    await replyTeacherOnly(ctx);
     return;
   }
 
@@ -368,8 +444,10 @@ bot.command("week", async (ctx) => {
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
 
+  const noun = resolveLessonNoun(teacher.lessonNoun);
+
   if (slots.length === 0) {
-    await ctx.reply("📅 На найближчі 7 днів занять немає.");
+    await ctx.reply(`📅 На найближчі 7 днів ${noun.genPl} немає.`);
     return;
   }
 
@@ -394,7 +472,7 @@ bot.command("week", async (ctx) => {
     sections.push(`<b>${dayLabel}</b>\n${lines.join("\n")}`);
   }
 
-  await ctx.reply(`📅 <b>Заняття на 7 днів</b>\n\n${sections.join("\n\n")}`, { parse_mode: "HTML" });
+  await ctx.reply(`📅 <b>${cap(noun.plural)} на 7 днів</b>\n\n${sections.join("\n\n")}`, { parse_mode: "HTML" });
 });
 
 // ── Teacher: /debts ────────────────────────────────────────────────────────────
@@ -402,7 +480,7 @@ bot.command("debts", async (ctx) => {
   const telegramId = String(ctx.from!.id);
   const teacher = await prisma.teacher.findFirst({ where: { telegramChatId: telegramId } });
   if (!teacher) {
-    await ctx.reply("❌ Ви не прив'язані як спеціаліст. Введіть /start ВАШ_КОД");
+    await replyTeacherOnly(ctx);
     return;
   }
 
@@ -442,14 +520,14 @@ bot.command("next", async (ctx) => {
   const students = await getLinkedStudents(telegramId);
 
   if (students.length === 0) {
-    await ctx.reply("❌ Ви не прив'язані. Введіть /start ВАШ_КОД");
+    await replyClientOnly(ctx);
     return;
   }
 
   const today = kyivToday();
 
   // Find nearest slot across all linked specialists
-  type SlotWithMeta = { date: string; startTime: string; endTime: string; specialistName: string };
+  type SlotWithMeta = { date: string; startTime: string; endTime: string; specialistName: string; noun: LessonNoun };
   let nearest: SlotWithMeta | null = null;
 
   for (const student of students) {
@@ -465,7 +543,13 @@ bot.command("next", async (ctx) => {
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
     if (slot) {
-      const candidate = { date: slot.date, startTime: slot.startTime, endTime: slot.endTime, specialistName: tName(student.teacher) };
+      const candidate = {
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        specialistName: tName(student.teacher),
+        noun: resolveLessonNoun(student.teacher.lessonNoun),
+      };
       if (!nearest || slot.date < nearest.date || (slot.date === nearest.date && slot.startTime < nearest.startTime)) {
         nearest = candidate;
       }
@@ -473,7 +557,7 @@ bot.command("next", async (ctx) => {
   }
 
   if (!nearest) {
-    await ctx.reply("📅 Найближчих занять немає.");
+    await ctx.reply(`📅 Найближчих ${sharedNoun(students).genPl} немає.`);
     return;
   }
 
@@ -481,7 +565,8 @@ bot.command("next", async (ctx) => {
   const dateLabel = d.toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
   const specialistLine = students.length > 1 ? `\n👤 ${nearest.specialistName}` : "";
   await ctx.reply(
-    `📅 <b>Найближче заняття</b>\n\n${dateLabel}\n🕐 ${nearest.startTime}–${nearest.endTime} за київським часом${specialistLine}`,
+    `📅 <b>${cap(adj("nearest", nearest.noun))} ${nearest.noun.nom}</b>\n\n` +
+      `${dateLabel}\n🕐 ${nearest.startTime}–${nearest.endTime} за київським часом${specialistLine}`,
     { parse_mode: "HTML" }
   );
 });
@@ -492,7 +577,7 @@ bot.command("pay", async (ctx) => {
   const students = await getLinkedStudents(telegramId);
 
   if (students.length === 0) {
-    await ctx.reply("❌ Ви не прив'язані. Введіть /start ВАШ_КОД");
+    await replyClientOnly(ctx);
     return;
   }
 
@@ -579,6 +664,7 @@ bot.command("unlink", async (ctx) => {
     where: { id: student.id },
     data: { telegramId: null, telegramHandle: null },
   });
+  await syncChatCommands(ctx.api, telegramId, true);
 
   await ctx.reply(
     `✅ Розклад <b>${tName(student.teacher)}</b> відв'язано. Повідомлення більше не будуть надходити.`,

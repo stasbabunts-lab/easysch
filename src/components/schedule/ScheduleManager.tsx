@@ -67,15 +67,42 @@ interface EditState {
   saving: boolean;
 }
 
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function timeToMin(t: string) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 }
 
+/** Declined forms of the teacher's word for a meeting (see lib/lesson-noun). */
+export interface NounForms {
+  nom: string;
+  gen: string;
+  acc: string;
+  plural: string;
+  genPl: string;
+  weeklyNom: string;
+  weeklyInstr: string;
+  oneTimeNom: string;
+  oneTimeInstr: string;
+  /** "це заняття" / "цю консультацію" / "цей урок" */
+  thisAcc: string;
+  /** "цього заняття" / "цієї консультації" */
+  thisGen: string;
+}
+
+const DEFAULT_NOUN: NounForms = {
+  nom: "заняття", gen: "заняття", acc: "заняття", plural: "заняття", genPl: "занять",
+  weeklyNom: "щотижневе", weeklyInstr: "щотижневим", oneTimeNom: "разове", oneTimeInstr: "разовим", thisAcc: "це заняття", thisGen: "цього заняття",
+};
+
 interface Props {
   students: StudentInfo[];
   weekStartsMonday: boolean;
   showStudentPhone: boolean;
+  noun?: NounForms;
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -118,7 +145,7 @@ function groupByDate(slots: SlotData[]) {
   return map;
 }
 
-export function ScheduleManager({ students: initialStudents, weekStartsMonday, showStudentPhone }: Props) {
+export function ScheduleManager({ students: initialStudents, weekStartsMonday, showStudentPhone, noun = DEFAULT_NOUN }: Props) {
   // Local copy so a client quick-created from the picker shows up immediately.
   const [students, setStudents] = useState<StudentInfo[]>(initialStudents);
   useEffect(() => { setStudents(initialStudents); }, [initialStudents]);
@@ -274,7 +301,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
       const created: SlotData[] = await res.json();
       setSlots((prev) => [...prev, ...created]);
       setAddOpen(false);
-      toast.success(newSlot.isRecurring ? `Створено ${created.length} занять (3 міс.)` : "Заняття додано");
+      toast.success(newSlot.isRecurring ? `Створено ${created.length} ${noun.genPl} (3 міс.)` : `${cap(noun.acc)} додано`);
     } catch {
       toast.error("Помилка додавання");
     } finally {
@@ -301,12 +328,12 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
           ...prev.filter((s) => s.id !== toggleSlot.id),
           ...data.slots,
         ]);
-        toast.success(`Створено ${data.slots.length} щотижневих занять`);
+        toast.success(`Створено ${data.slots.length} щотижневих ${noun.genPl}`);
       } else {
         setSlots((prev) =>
           prev.map((s) => (s.id === toggleSlot.id ? { ...s, isRecurring: false, recurringGroupId: null } : s))
         );
-        toast.success("Заняття тепер разове");
+        toast.success(`${cap(noun.nom)} тепер ${noun.oneTimeNom}`);
       }
       setToggleSlot(null);
     } catch {
@@ -331,10 +358,10 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
               !(s.recurringGroupId === data.groupId && s.date >= deleteSlot.date)
           )
         );
-        toast.success("Це і всі майбутні заняття видалено");
+        toast.success(`Це і всі майбутні ${noun.plural} видалено`);
       } else {
         setSlots((prev) => prev.filter((s) => s.id !== data.id));
-        toast.success("Заняття видалено");
+        toast.success(`${cap(noun.acc)} видалено`);
       }
       setDeleteSlot(null);
     } catch {
@@ -453,7 +480,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
           )}
         </div>
         <Button onClick={() => setAddOpen(true)} size="sm" className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-1" /> Додати заняття
+          <Plus className="h-4 w-4 mr-1" /> Додати {noun.acc}
         </Button>
       </div>
 
@@ -487,7 +514,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
                   </div>
                   <div className="p-2 space-y-1.5">
                     {daySlots.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/50 px-2 py-1">Немає занять</p>
+                      <p className="text-xs text-muted-foreground/50 px-2 py-1">Немає {noun.genPl}</p>
                     ) : (
                       daySlots.map((slot) => (
                         <SlotRow
@@ -496,6 +523,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
                           onClick={() => openEdit(slot)}
                           onDelete={() => setDeleteSlot(slot)}
                           onToggleRecurring={() => setToggleSlot(slot)}
+                          weeklyInstr={noun.weeklyInstr}
                         />
                       ))
                     )}
@@ -549,7 +577,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
       {/* ── Add Dialog ── */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Додати заняття</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Додати {noun.acc}</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label className="text-xs">
@@ -677,6 +705,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
                   students={sortedStudents}
                   onCreate={handleStudentCreated}
                   showStudentPhone={showStudentPhone}
+                  priceLabel={`Ціна ${noun.gen}`}
                 />
               </div>
             )}
@@ -706,7 +735,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {toggleSlot?.isRecurring ? "Зробити разовим?" : "Зробити щотижневим?"}
+              {toggleSlot?.isRecurring ? `Зробити ${noun.oneTimeInstr}?` : `Зробити ${noun.weeklyInstr}?`}
             </DialogTitle>
           </DialogHeader>
           {toggleSlot && (
@@ -717,11 +746,11 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
               </div>
               {toggleSlot.isRecurring ? (
                 <p className="text-sm text-muted-foreground">
-                  Заняття буде відв&apos;язано від серії і стане разовим.
+                  {cap(noun.acc)} буде відв&apos;язано від серії і зроблено {noun.oneTimeInstr}.
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Заняття стане <strong>щотижневим</strong> і повторюватиметься регулярно — серія продовжується автоматично.
+                  {cap(noun.nom)} стане <strong>{noun.weeklyInstr}</strong> і повторюватиметься регулярно — серія продовжується автоматично.
                 </p>
               )}
               <div className="flex gap-2">
@@ -738,7 +767,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
       {/* ── Delete Confirm Dialog ── */}
       <Dialog open={!!deleteSlot} onOpenChange={(o) => !o && setDeleteSlot(null)}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Видалити заняття</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Видалити {noun.acc}</DialogTitle></DialogHeader>
           {deleteSlot && (
             <div className="space-y-4 pt-2">
               <div className="rounded-lg bg-muted/50 px-4 py-3 text-sm">
@@ -756,7 +785,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
                   onClick={() => confirmDelete("one")}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
-                  Тільки це заняття
+                  Тільки {noun.thisAcc}
                 </Button>
                 {deleteSlot.isRecurring && (
                   <Button
@@ -781,7 +810,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
       {/* ── Unified Edit Dialog ── */}
       <Dialog open={!!editState} onOpenChange={(o) => !o && setEditState(null)}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Редагувати заняття</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Редагувати {noun.acc}</DialogTitle></DialogHeader>
           {editState && (
             <div className="space-y-4 pt-2">
               {/* Date — disabled for bulk "future" edits to prevent collapsing the whole series to one date */}
@@ -857,7 +886,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
                   <Label className="text-xs">
                     Учасники{" "}
                     <span className="text-muted-foreground font-normal">
-                      — тільки для цього заняття
+                      — тільки для {noun.thisGen}
                     </span>
                   </Label>
                   <MultiStudentPicker
@@ -875,6 +904,7 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
                     students={sortedStudents}
                     onCreate={handleStudentCreated}
                     showStudentPhone={showStudentPhone}
+                    priceLabel={`Ціна ${noun.gen}`}
                   />
                 </div>
               )}
@@ -931,12 +961,14 @@ export function ScheduleManager({ students: initialStudents, weekStartsMonday, s
 
 // ── Student picker with search ────────────────────────────────────────────────
 
-function StudentPicker({ value, onChange, students, onCreate, showStudentPhone }: {
+function StudentPicker({ value, onChange, students, onCreate, showStudentPhone, priceLabel = "Ціна заняття" }: {
   value: string;
   onChange: (id: string) => void;
   students: StudentInfo[];
   onCreate?: (student: StudentInfo) => void;
   showStudentPhone?: boolean;
+  /** "Ціна заняття" / "Ціна консультації" — quick-create price field. */
+  priceLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -979,7 +1011,7 @@ function StudentPicker({ value, onChange, students, onCreate, showStudentPhone }
     const name = cName.trim();
     const priceNum = Number(cPrice.replace(",", "."));
     if (!name) { toast.error("Вкажіть ім'я"); return; }
-    if (isNaN(priceNum) || priceNum < 0) { toast.error("Вкажіть ціну заняття"); return; }
+    if (isNaN(priceNum) || priceNum < 0) { toast.error("Вкажіть коректну ціну"); return; }
     setCSaving(true);
     try {
       const res = await fetch("/api/students", {
@@ -1037,7 +1069,7 @@ function StudentPicker({ value, onChange, students, onCreate, showStudentPhone }
                 type="number"
                 min="0"
                 step="1"
-                placeholder="Ціна заняття"
+                placeholder={priceLabel}
                 className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 value={cPrice}
                 onChange={(e) => setCPrice(e.target.value)}
@@ -1206,9 +1238,11 @@ interface SlotRowProps {
   onClick: () => void;
   onDelete: () => void;
   onToggleRecurring: () => void;
+  /** Instrumental form of "weekly" agreeing with the teacher's noun. */
+  weeklyInstr: string;
 }
 
-function SlotRow({ slot, onClick, onDelete, onToggleRecurring }: SlotRowProps) {
+function SlotRow({ slot, onClick, onDelete, onToggleRecurring, weeklyInstr }: SlotRowProps) {
   const isRecurring = slot.isRecurring;
   const isGroup = slot.isGroup;
   const hasStudent = isGroup ? slot.groupStudents.length > 0 : !!slot.student;
@@ -1266,7 +1300,7 @@ function SlotRow({ slot, onClick, onDelete, onToggleRecurring }: SlotRowProps) {
       {/* Weekly toggle */}
       <button
         onClick={(e) => { e.stopPropagation(); onToggleRecurring(); }}
-        title={isRecurring ? "Щотижнево — натисніть щоб змінити" : "Разове — натисніть щоб зробити щотижневим"}
+        title={isRecurring ? "Щотижнево — натисніть щоб змінити" : `Разово — натисніть щоб зробити ${weeklyInstr}`}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 ${colors.badge}`}
       >
         <RefreshCw className="h-3 w-3" />

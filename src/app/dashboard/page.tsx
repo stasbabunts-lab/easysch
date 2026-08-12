@@ -6,6 +6,7 @@ import { formatAmount } from "@/lib/payment-offset";
 import { kyivNow } from "@/lib/time";
 import { CalendarDays, Users, CreditCard, TrendingUp, Clock, Bell } from "lucide-react";
 import { LABELS } from "@/lib/labels";
+import { resolveLessonNoun, cap } from "@/lib/lesson-noun";
 import Link from "next/link";
 import { NotificationLog } from "@/components/dashboard/NotificationLog";
 import { ReminderWidget } from "@/components/dashboard/ReminderWidget";
@@ -105,7 +106,7 @@ export default async function DashboardPage() {
   const [teacher, upcomingLessons, studentCount, studentsForDebt, reminders, recentNotifs] = await Promise.all([
     prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: { subscriptionExpiresAt: true, telegramChatId: true },
+      select: { subscriptionExpiresAt: true, telegramChatId: true, lessonNoun: true },
     }),
     prisma.lesson.findMany({
       where: { teacherId, scheduledAt: { gte: now }, status: { not: "CANCELLED" } },
@@ -156,6 +157,8 @@ export default async function DashboardPage() {
     (l) => l.scheduledAt.toDateString() === now.toDateString()
   ).length;
 
+  const noun = resolveLessonNoun(teacher?.lessonNoun);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -178,7 +181,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard label={LABELS.students} value={studentCount} icon={Users} color="text-violet-600" iconBg="bg-violet-50" />
-        <StatCard label="Занять сьогодні" value={todayLessons} icon={CalendarDays} color="text-blue-600" iconBg="bg-blue-50" />
+        <StatCard label={`${cap(noun.genPl)} сьогодні`} value={todayLessons} icon={CalendarDays} color="text-blue-600" iconBg="bg-blue-50" />
         <StatCard label="Очікує оплат" value={formatAmount(totalDebt)} icon={CreditCard} color="text-amber-600" iconBg="bg-amber-50" />
         <StatCard label="Найближчий клієнт" value={upcomingLessons[0]?.student.name.split(" ")[0] ?? "—"} icon={TrendingUp} color="text-emerald-600" iconBg="bg-emerald-50" />
       </div>
@@ -186,11 +189,11 @@ export default async function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3 border-b border-border/50">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Найближчі заняття</CardTitle>
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Найближчі {noun.plural}</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             {upcomingLessons.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Немає запланованих занять</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Немає запланованих {noun.genPl}</p>
             ) : (
               <div className="space-y-1">
                 {upcomingLessons.map((l) => (

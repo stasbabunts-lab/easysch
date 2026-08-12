@@ -9,9 +9,11 @@ import { formatAmount } from "@/lib/format";
 interface InlinePriceEditProps {
   studentId: string;
   lessonPrice: number; // в копейках
+  /** Teacher's word for one meeting — "заняття", "консультація", … */
+  unitLabel?: string;
 }
 
-export function InlinePriceEdit({ studentId, lessonPrice }: InlinePriceEditProps) {
+export function InlinePriceEdit({ studentId, lessonPrice, unitLabel = "заняття" }: InlinePriceEditProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(lessonPrice / 100));
@@ -73,7 +75,7 @@ export function InlinePriceEdit({ studentId, lessonPrice }: InlinePriceEditProps
 
   return (
     <span className="inline-flex items-center gap-1 group/price">
-      <span className="text-xs text-muted-foreground">{formatAmount(lessonPrice)} / заняття</span>
+      <span className="text-xs text-muted-foreground">{formatAmount(lessonPrice)} / {unitLabel}</span>
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing(true); }}
         className="opacity-0 group-hover/price:opacity-100 transition-opacity text-muted-foreground hover:text-primary"

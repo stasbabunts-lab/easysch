@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { normalizeLessonNounInput } from "@/lib/lesson-noun";
 
 // Email registration is disabled — use Google sign-in
 export async function POST() {
@@ -35,7 +36,7 @@ export async function PATCH(req: NextRequest) {
   if (displayName !== undefined) data.displayName = displayName?.trim() || null;
   if (paymentDetails !== undefined) data.paymentDetails = paymentDetails?.trim() || null;
   if (postLessonNote !== undefined) data.postLessonNote = postLessonNote?.trim() || null;
-  if (lessonNoun !== undefined) data.lessonNoun = lessonNoun?.trim() || "заняття";
+  if (lessonNoun !== undefined) data.lessonNoun = normalizeLessonNounInput(lessonNoun);
   if (telegramUsername !== undefined) data.telegramUsername = telegramUsername?.replace(/^@/, "").trim() || null;
   if (phone !== undefined) data.phone = phone?.trim() || null;
   if (paymentMinAmount !== undefined) data.paymentMinAmount = paymentMinAmount === null || paymentMinAmount === "" ? null : Math.round(Number(paymentMinAmount) * 100);

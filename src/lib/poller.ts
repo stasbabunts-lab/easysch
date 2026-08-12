@@ -14,6 +14,7 @@ import {
 import { logNotification } from "./bot/notification-log";
 import { formatAmount } from "./payment-offset";
 import { kyivNow, kyivToday } from "./time";
+import { resolveLessonNoun, adj } from "./lesson-noun";
 
 /** How many lessons one prepayment may cover — the ceiling of the exact-sum grid. */
 const MAX_PREPAID_LESSONS = 24;
@@ -81,6 +82,10 @@ export async function pollPayments(teacherId: string): Promise<number> {
     },
   });
   if (!teacher) return 0;
+
+  // The teacher's own word for a lesson — used in every message we send out and
+  // in the fallback log lines below.
+  const lessonNoun = resolveLessonNoun(teacher.lessonNoun);
 
   const since = teacher.lastPolledAt ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -257,14 +262,15 @@ export async function pollPayments(teacherId: string): Promise<number> {
           scheduledAt,
           bestWindow,
           teacher.name,
-          slot.isRecurring
+          slot.isRecurring,
+          teacher.lessonNoun
         ).catch(() => null);
         await logNotification({
           teacherId,
           studentId: slot.student.id,
           studentName: slot.student.name,
           type: "lesson_reminder",
-          text: sentText ?? `Нагадування: заняття ${slot.date} о ${slot.startTime}`,
+          text: sentText ?? `Нагадування: ${lessonNoun.nom} ${slot.date} о ${slot.startTime}`,
         }).catch(() => null);
         await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
       }
@@ -278,7 +284,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
           scheduledAt,
           bestWindow,
           slot.student.name,
-          slot.isRecurring
+          slot.isRecurring,
+          teacher.lessonNoun
         ).catch(() => null);
         await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSentTeacher: true } });
       }
@@ -315,14 +322,15 @@ export async function pollPayments(teacherId: string): Promise<number> {
             scheduledAt,
             bestWindow,
             teacher.name,
-            slot.isRecurring
+            slot.isRecurring,
+            teacher.lessonNoun
           ).catch(() => null);
           await logNotification({
             teacherId,
             studentId: student.id,
             studentName: student.name,
             type: "lesson_reminder",
-            text: `Нагадування: групове заняття ${slot.date} о ${slot.startTime}`,
+            text: `Нагадування: ${adj("group", lessonNoun)} ${lessonNoun.nom} ${slot.date} о ${slot.startTime}`,
           }).catch(() => null);
           await prisma.lesson.update({ where: { id: lesson.id }, data: { reminderSent: true } });
         }
@@ -341,7 +349,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
             scheduledAt,
             bestWindow,
             `Група: ${studentNames}`,
-            slot.isRecurring
+            slot.isRecurring,
+            teacher.lessonNoun
           ).catch(() => null);
           await prisma.lesson.updateMany({
             where: { slotId: slot.id },
@@ -412,7 +421,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         studentId: slot.student.id,
         studentName: slot.student.name,
         type: "payment_reminder",
-        text: sentReminderText ?? `Нагадування про оплату після заняття: ${formatAmount(amount)}`,
+        text: sentReminderText ?? `Нагадування про оплату після ${lessonNoun.gen}: ${formatAmount(amount)}`,
         amountKopecks: amount,
       }).catch(() => null);
       await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
@@ -475,7 +484,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
           studentId: student.id,
           studentName: student.name,
           type: "payment_reminder",
-          text: sentGroupReminderText ?? `Нагадування про оплату після групового заняття: ${formatAmount(amount)}`,
+          text: sentGroupReminderText ?? `Нагадування про оплату після ${lessonNoun.gen} (група): ${formatAmount(amount)}`,
           amountKopecks: amount,
         }).catch(() => null);
         await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });

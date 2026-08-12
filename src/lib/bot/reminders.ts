@@ -1,4 +1,5 @@
 import { formatAmount } from "@/lib/payment-offset";
+import { resolveLessonNoun, adj, cap } from "@/lib/lesson-noun";
 
 export async function sendTelegramMessage(chatId: string, text: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -24,8 +25,10 @@ export async function sendStudentLessonReminder(
   scheduledAt: Date,
   minutesBefore: number,
   teacherName: string,
-  isWeekly: boolean
+  isWeekly: boolean,
+  lessonNoun?: string | null
 ) {
+  const noun = resolveLessonNoun(lessonNoun);
   const time = scheduledAt.toLocaleTimeString("uk-UA", {
     hour: "2-digit",
     minute: "2-digit",
@@ -37,14 +40,14 @@ export async function sendStudentLessonReminder(
     month: "long",
     timeZone: "UTC", // scheduledAt holds wall-clock time stored as UTC — echo it back, don't shift
   });
-  const typeLabel = isWeekly ? "щотижневе" : "разове";
+  const typeLabel = isWeekly ? adj("weekly", noun) : adj("oneTime", noun);
   const timeLabel =
     minutesBefore >= 60
       ? `${Math.round(minutesBefore / 60)} год.`
       : `${minutesBefore} хв.`;
 
   const text =
-    `⏰ Нагадування про заняття\n\n` +
+    `⏰ Нагадування про ${noun.acc}\n\n` +
     `📅 ${date}\n` +
     `🕐 ${time} за київським часом (через ${timeLabel})\n` +
     `👤 Спеціаліст: ${teacherName}\n` +
@@ -58,8 +61,10 @@ export async function sendTeacherLessonReminder(
   scheduledAt: Date,
   minutesBefore: number,
   studentName: string,
-  isWeekly: boolean
+  isWeekly: boolean,
+  lessonNoun?: string | null
 ) {
+  const noun = resolveLessonNoun(lessonNoun);
   const time = scheduledAt.toLocaleTimeString("uk-UA", {
     hour: "2-digit",
     minute: "2-digit",
@@ -71,7 +76,7 @@ export async function sendTeacherLessonReminder(
     month: "long",
     timeZone: "UTC", // scheduledAt holds wall-clock time stored as UTC — echo it back, don't shift
   });
-  const typeLabel = isWeekly ? "Щотижневе" : "Разове";
+  const typeLabel = cap(isWeekly ? adj("weekly", noun) : adj("oneTime", noun));
   const timeLabel =
     minutesBefore >= 60
       ? `${Math.round(minutesBefore / 60)} год.`
@@ -79,7 +84,7 @@ export async function sendTeacherLessonReminder(
 
   await sendTelegramMessage(
     chatId,
-    `📌 <b>${typeLabel} заняття через ${timeLabel}</b>\n\n` +
+    `📌 <b>${typeLabel} ${noun.nom} через ${timeLabel}</b>\n\n` +
       `👤 Клієнт: <b>${studentName}</b>\n` +
       `📅 ${date}\n` +
       `🕐 ${time}`
@@ -92,11 +97,12 @@ export async function sendPostLessonPaymentReminder(
   amountTotal: number,
   postLessonNote?: string | null,
   requireExactSum: boolean = false,
-  lessonNoun: string = "заняття"
+  lessonNoun?: string | null
 ) {
+  const noun = resolveLessonNoun(lessonNoun);
   const amountStr = formatAmount(amountTotal);
   const parts = [
-    `Ви завершили ${lessonNoun} на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n${paymentDetails}`,
+    `Ви завершили ${noun.acc} на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n${paymentDetails}`,
   ];
   // The "exact sum" ask only matters when a bank API auto-matches by the kopeck tail.
   if (requireExactSum) parts.push(`Будь ласка, сплачуйте точну суму, щоб система могла розпізнати ваш платіж`);

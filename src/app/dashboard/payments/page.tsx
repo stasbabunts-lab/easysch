@@ -10,6 +10,7 @@ import { formatAmount, formatAmountWhole } from "@/lib/format";
 import Link from "next/link";
 import { RefreshCw, Users, ArrowDownLeft, Check, X, ChevronDown, MessageSquare } from "lucide-react";
 import { GuideButton } from "@/components/layout/GuideButton";
+import { LESSON_NOUNS, DEFAULT_LESSON_NOUN_KEY, resolveLessonNoun } from "@/lib/lesson-noun";
 
 interface ActiveClient {
   id: string;
@@ -357,9 +358,10 @@ export default function PaymentsPage() {
   const [msgOpen, setMsgOpen] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState("");
   const [postLessonNote, setPostLessonNote] = useState("");
-  const [lessonNoun, setLessonNoun] = useState("заняття");
+  const [lessonNoun, setLessonNoun] = useState(DEFAULT_LESSON_NOUN_KEY);
   const [savingMsg, setSavingMsg] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const noun = resolveLessonNoun(lessonNoun);
 
   useEffect(() => {
     fetch("/api/teachers")
@@ -368,7 +370,7 @@ export default function PaymentsPage() {
         if (d) {
           setPaymentDetails(d.paymentDetails ?? "");
           setPostLessonNote(d.postLessonNote ?? "");
-          setLessonNoun(d.lessonNoun ?? "заняття");
+          setLessonNoun(d.lessonNoun ?? DEFAULT_LESSON_NOUN_KEY);
         }
         setSettingsLoaded(true);
       })
@@ -511,9 +513,9 @@ export default function PaymentsPage() {
         >
           <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">Повідомлення клієнтам після заняття</p>
+            <p className="text-sm font-medium">Повідомлення клієнтам після {noun.gen}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Надсилається в Telegram одразу після завершення заняття
+              Надсилається в Telegram одразу після завершення {noun.gen}
             </p>
           </div>
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${msgOpen ? "rotate-180" : ""}`} />
@@ -530,15 +532,17 @@ export default function PaymentsPage() {
                   <span className="text-xs text-muted-foreground font-mono mt-2.5 w-4 shrink-0">1</span>
                   <div className="flex-1 rounded-lg bg-muted/50 border border-border/40 px-3 py-2.5 text-sm text-foreground leading-7">
                     Ви завершили{" "}
-                    <input
-                      value={lessonNoun}
+                    <select
+                      value={noun.key === "custom" ? lessonNoun : noun.key}
                       onChange={(e) => setLessonNoun(e.target.value)}
-                      onBlur={() => { if (!lessonNoun.trim()) setLessonNoun("заняття"); }}
-                      maxLength={30}
-                      placeholder="заняття"
-                      title="Слово, яким називати ваші зустрічі (напр. урок, сесія, візит)"
-                      className="inline-block w-28 rounded-md border border-input bg-white dark:bg-background px-2 py-0.5 text-sm font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 align-baseline"
-                    />{" "}
+                      title="Слово, яким називати ваші зустрічі — підставляється в усі повідомлення у потрібному відмінку"
+                      className="inline-block rounded-md border border-input bg-white dark:bg-background px-2 py-0.5 text-sm font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 align-baseline"
+                    >
+                      {noun.key === "custom" && <option value={lessonNoun}>{lessonNoun}</option>}
+                      {LESSON_NOUNS.map((n) => (
+                        <option key={n.key} value={n.key}>{n.acc}</option>
+                      ))}
+                    </select>{" "}
                     на платформі Easy Schedule, будь ласка, сплатіть{" "}
                     <span className="font-semibold text-primary">[сума]</span> на рахунок:
                   </div>
@@ -615,7 +619,7 @@ export default function PaymentsPage() {
             <p className="text-sm text-muted-foreground px-6 pb-6">Завантажуємо...</p>
           ) : clients.length === 0 ? (
             <p className="text-sm text-muted-foreground px-6 pb-6">
-              Немає активних клієнтів — додайте клієнта до занять у розкладі.
+              Немає активних клієнтів — додайте клієнта до {noun.genPl} у розкладі.
             </p>
           ) : (
             <>

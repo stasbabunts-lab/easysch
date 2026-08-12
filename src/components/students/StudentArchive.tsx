@@ -13,7 +13,16 @@ interface ArchivedStudent {
   lessonCount: number;
 }
 
-export function StudentArchive({ students }: { students: ArchivedStudent[] }) {
+export function StudentArchive({
+  students,
+  nounPlural = "заняття",
+  nounGenPl = "занять",
+}: {
+  students: ArchivedStudent[];
+  /** Teacher's word for meetings: nominative plural / genitive plural. */
+  nounPlural?: string;
+  nounGenPl?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -40,7 +49,7 @@ export function StudentArchive({ students }: { students: ArchivedStudent[] }) {
 
   async function remove(s: ArchivedStudent) {
     if (!confirm(
-      `Видалити «${s.name}» НАЗАВЖДИ?\n\nБудуть безповоротно стерті всі дані клієнта: проведені заняття, оплати, запити та баланс. Відновити буде неможливо.`
+      `Видалити «${s.name}» НАЗАВЖДИ?\n\nБудуть безповоротно стерті всі дані клієнта: проведені ${nounPlural}, оплати, запити та баланс. Відновити буде неможливо.`
     )) return;
     setBusy(s.id);
     try {
@@ -77,7 +86,7 @@ export function StudentArchive({ students }: { students: ArchivedStudent[] }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{s.name}</p>
-                <p className="text-xs text-muted-foreground">{s.lessonCount} занять</p>
+                <p className="text-xs text-muted-foreground">{s.lessonCount} {nounGenPl}</p>
               </div>
               <button
                 onClick={() => restore(s)}

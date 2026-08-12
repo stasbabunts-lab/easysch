@@ -3,6 +3,7 @@ import { ArrowLeft, Bot, Landmark, CreditCard, CalendarPlus, MessageCircle, Chec
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SupportForm } from "./SupportForm";
+import { resolveLessonNoun, adj, type LessonNoun } from "@/lib/lesson-noun";
 
 export const metadata = {
   title: "Як розпочати роботу",
@@ -15,7 +16,7 @@ interface Step {
   body: React.ReactNode;
 }
 
-function telegramStepBody(connected: boolean, code: string): React.ReactNode {
+function telegramStepBody(connected: boolean, code: string, noun: LessonNoun): React.ReactNode {
   if (connected) {
     return (
       <>
@@ -23,7 +24,7 @@ function telegramStepBody(connected: boolean, code: string): React.ReactNode {
         <span className="font-medium text-emerald-700 inline-flex items-center gap-0.5">
           (<Check className="h-3.5 w-3.5" /> бот вже підключено)
         </span>
-        . Ви отримуєте сповіщення про оплати та нагадування про заняття.
+        . Ви отримуєте сповіщення про оплати та нагадування про {noun.plural}.
         Клієнти підключаються так само — кожен отримує свій особистий код на сторінці «Клієнти».
       </>
     );
@@ -31,7 +32,7 @@ function telegramStepBody(connected: boolean, code: string): React.ReactNode {
   return (
     <>
       Натисніть кнопку — ваш персональний код підставиться автоматично. Після підключення
-      ви отримуватимете сповіщення про оплати та нагадування про заняття.
+      ви отримуватимете сповіщення про оплати та нагадування про {noun.plural}.
       <a
         href={`https://t.me/EasySchBot?start=${code}`}
         target="_blank"
@@ -48,13 +49,13 @@ function telegramStepBody(connected: boolean, code: string): React.ReactNode {
   );
 }
 
-function buildSteps(connected: boolean, code: string): Step[] {
+function buildSteps(connected: boolean, code: string, noun: LessonNoun): Step[] {
   return [
     {
       icon: Bot,
       href: "/dashboard/settings",
       title: "Підключіть Telegram-бот",
-      body: telegramStepBody(connected, code),
+      body: telegramStepBody(connected, code, noun),
     },
     {
       icon: CreditCard,
@@ -63,20 +64,20 @@ function buildSteps(connected: boolean, code: string): Step[] {
       body: (
         <>
           На сторінці «Оплати» вкажіть номер картки або IBAN.
-          Ці реквізити автоматично надсилаються клієнту в Telegram після кожного заняття та коли ви створюєте запит на оплату.
+          Ці реквізити автоматично надсилаються клієнту в Telegram після {adj("each", noun, "gen")} {noun.gen} та коли ви створюєте запит на оплату.
         </>
       ),
     },
     {
       icon: CalendarPlus,
       href: "/dashboard/students",
-      title: "Додавайте клієнтів і заняття",
+      title: `Додавайте клієнтів і ${noun.plural}`,
       body: (
         <>
-          У «Клієнти» додайте учнів і вкажіть ціну заняття.
+          У «Клієнти» додайте клієнтів і вкажіть ціну {noun.gen}.
           У «Розклад» створюйте слоти часу — поки слот не призначено клієнту, він відображається як{" "}
           <span className="font-medium text-foreground">вільний час</span> на публічній сторінці розкладу.
-          Після призначення клієнту слот стає заняттям і зникає з публічного вигляду.
+          Після призначення клієнту слот зникає з публічного вигляду.
         </>
       ),
     },
@@ -104,7 +105,8 @@ function buildSteps(connected: boolean, code: string): Step[] {
           персональний токен Monobank лише <span className="font-medium text-foreground">читає виписку</span> — ним <span className="font-medium text-foreground">неможливо</span> переказати чи зняти кошти або керувати рахунком.{" "}
           <span className="font-medium text-foreground">Як розпізнається платіж:</span>{" "}
           кожен клієнт має унікальний ідентифікатор у копійках (наприклад, 03).
-          Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і автоматично зараховує потрібному клієнту.
+          Клієнт платить рівно <span className="font-medium text-foreground">суму + ці копійки</span> — система знаходить платіж за «хвостиком» і зараховує його потрібному клієнту.{" "}
+          Зараховується лише <span className="font-medium text-foreground">точна очікувана сума</span>: запит на оплату, вартість одного чи кількох {noun.genPl} або поточний борг. Якщо сума інша, платіж не втрачається — він з’являється у списку транзакцій незарахованим, і його можна врахувати кнопкою «відновити».
         </>
       ),
     },
@@ -116,13 +118,13 @@ export default async function GuidePage() {
   const teacher = session
     ? await prisma.teacher.findUnique({
         where: { id: session.user.id },
-        select: { telegramChatId: true, code: true },
+        select: { telegramChatId: true, code: true, lessonNoun: true },
       })
     : null;
 
   const connected = !!teacher?.telegramChatId;
   const code = teacher?.code ?? "";
-  const STEPS = buildSteps(connected, code);
+  const STEPS = buildSteps(connected, code, resolveLessonNoun(teacher?.lessonNoun));
 
   return (
     <div className="space-y-6">

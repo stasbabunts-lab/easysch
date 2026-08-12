@@ -24,7 +24,18 @@ interface Student {
   notes?: string | null;
 }
 
-export function StudentActions({ student, hasPaymentDetails, bankConnected }: { student: Student; hasPaymentDetails: boolean; bankConnected: boolean }) {
+export function StudentActions({
+  student,
+  hasPaymentDetails,
+  bankConnected,
+  /** Teacher's word for a meeting: nominative / genitive / nominative plural. */
+  noun = { nom: "заняття", gen: "заняття", plural: "заняття", eachGen: "кожного заняття" },
+}: {
+  student: Student;
+  hasPaymentDetails: boolean;
+  bankConnected: boolean;
+  noun?: { nom: string; gen: string; plural: string; eachGen: string };
+}) {
   const router = useRouter();
   const [payDialog, setPayDialog] = useState(false);
   const [editDialog, setEditDialog] = useState(false);
@@ -80,7 +91,7 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
 
   async function archiveStudent() {
     if (!confirm(
-      `Архівувати клієнта "${student.name}"?\n\nЙого буде приховано зі списків і пікера занять, нагадування припиняться. Уся історія (заняття, оплати, баланс) збережеться — клієнта можна повернути з архіву.`
+      `Архівувати клієнта "${student.name}"?\n\nЙого буде приховано зі списків і пікера в розкладі, нагадування припиняться. Уся історія (${noun.plural}, оплати, баланс) збережеться — клієнта можна повернути з архіву.`
     )) return;
     const res = await fetch(`/api/students/${student.id}`, {
       method: "PATCH",
@@ -133,7 +144,7 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
           <DialogHeader><DialogTitle>Запит оплати</DialogTitle></DialogHeader>
           <form onSubmit={createPaymentRequest} className="space-y-4">
             <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-              💡 Якщо реквізити заповнені — запит надсилається учню автоматично після кожного заняття. Тут можна надіслати позаплановий запит вручну.
+              💡 Якщо реквізити заповнені — запит надсилається клієнту автоматично після {noun.eachGen}. Тут можна надіслати позаплановий запит вручну.
             </p>
             <div className="space-y-2">
               <Label>Сума</Label>
@@ -165,7 +176,7 @@ export function StudentActions({ student, hasPaymentDetails, bankConnected }: { 
               <Input name="name" defaultValue={student.name} required />
             </div>
             <div className="space-y-2">
-              <Label>Ціна заняття</Label>
+              <Label>Ціна {noun.gen}</Label>
               <Input name="lessonPrice" type="number" defaultValue={student.lessonPrice / 100} required />
             </div>
             <div className="space-y-2">
