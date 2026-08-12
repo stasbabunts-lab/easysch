@@ -75,9 +75,12 @@ export default function SettingsPage() {
   const [showFields, setShowFields] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState(false);
 
+  // The alias input is edited live, so the public link must follow the *saved*
+  // value — copying or opening a slug that was only typed leads to a 404.
+  const [savedAlias, setSavedAlias] = useState("");
   const code = session?.user?.teacherCode ?? "...";
-  const publicSlug = settings.alias || code;
-  const publicUrl = `https://easy-sch.com/${publicSlug}`;
+  const publicUrl = `https://easy-sch.com/${savedAlias || code}`;
+  const aliasDirty = settings.alias !== savedAlias;
 
   useEffect(() => {
     fetch("/api/teachers")
@@ -96,6 +99,7 @@ export default function SettingsPage() {
           showStudentPhone: data.showStudentPhone ?? false,
           lessonNoun: data.lessonNoun ?? DEFAULT_LESSON_NOUN_KEY,
         });
+        setSavedAlias(data?.alias ?? "");
       })
       .catch(() => null);
 
@@ -133,6 +137,7 @@ export default function SettingsPage() {
       }
       const updated = await res.json();
       setSettings((s) => ({ ...s, alias: updated.alias ?? "" }));
+      setSavedAlias(updated.alias ?? "");
       toast.success(updated.alias ? "Аліас збережено" : "Аліас видалено");
     } catch {
       toast.error("Помилка збереження");
@@ -520,48 +525,57 @@ export default function SettingsPage() {
 
       {/* Teacher code */}
       <Card className="border-border/50">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Ваш код</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Код і публічне посилання</CardTitle></CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 font-mono text-3xl font-bold tracking-widest text-primary bg-primary/10 rounded-xl px-6 py-4 text-center">
+        <CardContent className="space-y-3">
+          {/* Code — for linking your own Telegram (/start CODE) */}
+          <div className="flex items-center gap-2">
+            <code className="font-mono text-lg font-bold tracking-widest text-primary bg-primary/10 rounded-lg px-3 py-1.5">
               {code}
-            </div>
-            <Button size="icon" variant="secondary" onClick={copyCode}>
+            </code>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={copyCode} title="Скопіювати код">
               {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
             </Button>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Публічна сторінка розкладу:</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-muted rounded-md px-3 py-2 text-muted-foreground truncate">{publicUrl}</code>
-              <Button size="icon" variant="ghost" onClick={copyUrl}><Copy className="h-4 w-4" /></Button>
-              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="icon" variant="ghost"><ExternalLink className="h-4 w-4" /></Button>
-              </a>
-            </div>
+            <span className="text-xs text-muted-foreground">для підключення вашого Telegram</span>
           </div>
 
-          {/* Alias editor */}
-          <form onSubmit={saveAlias} className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Власне посилання (аліас)</p>
-            <div className="flex items-center gap-2">
-              <div className="flex flex-1 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
-                <span className="flex items-center px-3 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-none">
+          {/* Public link — the alias field IS the link, so no separate URL row */}
+          <form onSubmit={saveAlias} className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="flex flex-1 min-w-0 rounded-md border border-input overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
+                <span className="flex items-center px-2.5 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-none">
                   easy-sch.com/
                 </span>
                 <input
                   value={settings.alias}
                   onChange={(e) => setSettings((s) => ({ ...s, alias: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
                   placeholder={code.toLowerCase()}
-                  className="flex-1 px-3 py-2 text-sm font-mono bg-background outline-none min-w-0"
+                  title="Публічна сторінка розкладу. Тільки a–z, 0–9, дефіс, мін. 3 символи. Порожнє — буде код."
+                  className="flex-1 px-2.5 py-1.5 text-sm font-mono bg-background outline-none min-w-0"
                 />
               </div>
-              <Button type="submit" size="sm" disabled={savingAlias}>
-                {savingAlias ? "..." : "Зберегти"}
-              </Button>
+              {aliasDirty ? (
+                <Button type="submit" size="sm" disabled={savingAlias}>
+                  {savingAlias ? "..." : "Зберегти"}
+                </Button>
+              ) : (
+                <>
+                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={copyUrl} title="Скопіювати посилання">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" title="Відкрити сторінку">
+                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">Тільки a–z, 0–9, дефіс. Мін. 3 символи. Залиште порожнім — буде код.</p>
+            <p className="text-xs text-muted-foreground">
+              {aliasDirty
+                ? "a–z, 0–9, дефіс, мін. 3 символи. Порожнє — буде код."
+                : "Публічна сторінка розкладу — надсилайте це посилання клієнтам."}
+            </p>
           </form>
         </CardContent>
       </Card>
