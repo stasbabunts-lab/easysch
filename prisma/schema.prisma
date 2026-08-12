@@ -176,14 +176,18 @@ model PaymentRequest {
 }
 
 model NotificationLog {
-  id          String   @id @default(cuid())
-  teacherId   String
-  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  studentId   String?
-  studentName String
-  type        String   // "lesson_reminder" | "payment_reminder" | "payment_confirmed" | "payment_request"
-  text        String
-  sentAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  studentId     String?
+  studentName   String
+  type          String   // "lesson_reminder" | "payment_reminder" | "payment_confirmed" | "payment_request"
+  text          String
+  // Sum the student was actually asked for / confirmed, in kopecks. NULL for
+  // notifications that carry no amount (lesson reminders) and for rows written
+  // before this field existed.
+  amountKopecks Int?
+  sentAt        DateTime @default(now())
 }
 
 model AppSettings {

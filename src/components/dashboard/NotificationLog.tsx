@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { NotifType } from "@/lib/bot/notification-log";
+import { formatAmount } from "@/lib/format";
 
 const NOTIF_META: Record<NotifType, { label: string; cls: string }> = {
   lesson_reminder:   { label: "Нагадування урок",   cls: "bg-blue-50 text-blue-700" },
@@ -15,6 +16,8 @@ export interface NotifEntry {
   studentName: string;
   type: string;
   text: string;
+  /** Sum the student was asked for / that was confirmed. NULL for lesson reminders. */
+  amountKopecks?: number | null;
   sentAt: string; // ISO string (serialized from Date)
 }
 
@@ -73,6 +76,11 @@ export function NotificationLog({ notifs }: { notifs: NotifEntry[] }) {
                   <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${meta.cls}`}>
                     {meta.label}
                   </span>
+                  {n.amountKopecks != null && (
+                    <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-muted text-foreground tabular-nums">
+                      {formatAmount(n.amountKopecks)} грн
+                    </span>
+                  )}
                 </div>
                 <p className={`text-xs text-muted-foreground mt-0.5 ${isExpanded ? "whitespace-pre-wrap break-words" : "truncate"}`}>
                   {n.text}

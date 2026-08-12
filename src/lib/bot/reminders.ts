@@ -89,12 +89,12 @@ export async function sendTeacherLessonReminder(
 export async function sendPostLessonPaymentReminder(
   studentTelegramId: string,
   paymentDetails: string,
-  amountTotal?: number,
+  amountTotal: number,
   postLessonNote?: string | null,
   requireExactSum: boolean = false,
   lessonNoun: string = "заняття"
 ) {
-  const amountStr = amountTotal !== undefined ? formatAmount(amountTotal) : "—";
+  const amountStr = formatAmount(amountTotal);
   const parts = [
     `Ви завершили ${lessonNoun} на платформі Easy Schedule, будь ласка, сплатіть ${amountStr} на рахунок:\n\n${paymentDetails}`,
   ];

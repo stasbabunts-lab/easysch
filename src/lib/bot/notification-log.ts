@@ -12,6 +12,8 @@ export async function logNotification(params: {
   studentName: string;
   type: NotifType;
   text: string;
+  /** Sum the student was asked for / that was confirmed, in kopecks. */
+  amountKopecks?: number;
 }) {
   try {
     await prisma.notificationLog.create({ data: params });

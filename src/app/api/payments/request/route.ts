@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       studentName: student.name,
       type: "payment_request",
       text: sentText ?? `Запит на оплату ${formatAmount(amountTotal)}`,
+      amountKopecks: amountTotal,
     }).catch(() => null);
   }
 

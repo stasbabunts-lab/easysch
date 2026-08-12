@@ -14,6 +14,24 @@ import { logNotification } from "./bot/notification-log";
 import { formatAmount } from "./payment-offset";
 import { kyivNow, kyivToday } from "./time";
 
+/**
+ * Sum to ask for in a post-lesson reminder.
+ *
+ * An open PaymentRequest wins — its amountTotal already carries the offset tail
+ * when a bank is connected (see /api/payments/request). Without a request we
+ * fall back to the lesson price and have to add the tail ourselves, otherwise
+ * the incoming payment is a round sum the poller cannot attribute to anyone.
+ */
+function reminderAmount(
+  requestedTotal: number | undefined,
+  priceKopecks: number,
+  paymentOffset: number,
+  bankConnected: boolean
+): number {
+  if (requestedTotal !== undefined) return requestedTotal;
+  return bankConnected ? priceKopecks + paymentOffset : priceKopecks;
+}
+
 export async function pollPayments(teacherId: string): Promise<number> {
   const teacher = await prisma.teacher.findUnique({
     where: { id: teacherId },
@@ -123,6 +141,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
         studentName: student.name,
         type: "payment_confirmed",
         text: sentText ?? `Оплата ${formatAmount(tx.amount)} підтверджена`,
+        amountKopecks: tx.amount,
       }).catch(() => null);
     }
 
@@ -311,10 +330,17 @@ export async function pollPayments(teacherId: string): Promise<number> {
         orderBy: { createdAt: "asc" },
       });
 
+      const amount = reminderAmount(
+        request?.amountTotal,
+        slot.student.lessonPrice,
+        slot.student.paymentOffset,
+        bankConnected
+      );
+
       const sentReminderText = await sendPostLessonPaymentReminder(
         slot.student.telegramId,
         slot.student.paymentDetails ?? teacher.paymentDetails ?? "",
-        request?.amountTotal,
+        amount,
         teacher.postLessonNote,
         bankConnected,
         teacher.lessonNoun
@@ -324,9 +350,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
         studentId: slot.student.id,
         studentName: slot.student.name,
         type: "payment_reminder",
-        text: sentReminderText ?? (request?.amountTotal
-          ? `Нагадування про оплату після заняття: ${formatAmount(request.amountTotal)}`
-          : "Нагадування про оплату після заняття"),
+        text: sentReminderText ?? `Нагадування про оплату після заняття: ${formatAmount(amount)}`,
+        amountKopecks: amount,
       }).catch(() => null);
       await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
     }
@@ -368,7 +393,12 @@ export async function pollPayments(teacherId: string): Promise<number> {
         });
 
         const priceKopecks = student.groupLessonPrice ?? student.lessonPrice;
-        const amount = request?.amountTotal ?? priceKopecks;
+        const amount = reminderAmount(
+          request?.amountTotal,
+          priceKopecks,
+          student.paymentOffset,
+          bankConnected
+        );
 
         const sentGroupReminderText = await sendPostLessonPaymentReminder(
           student.telegramId,
@@ -384,6 +414,7 @@ export async function pollPayments(teacherId: string): Promise<number> {
           studentName: student.name,
           type: "payment_reminder",
           text: sentGroupReminderText ?? `Нагадування про оплату після групового заняття: ${formatAmount(amount)}`,
+          amountKopecks: amount,
         }).catch(() => null);
         await prisma.lesson.update({ where: { id: lesson.id }, data: { paymentReminderSent: true } });
       }
