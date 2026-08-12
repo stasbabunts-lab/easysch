@@ -2,10 +2,11 @@ import { prisma } from "./prisma";
 import { getBankAdapter } from "./bank";
 import { MockBankAdapter } from "./bank/mock-adapter";
 import { extendExpiringSeries } from "./recurring";
-import { getStudentBalance } from "./balance";
+import { getStudentBalance, type BillingStudent } from "./balance";
 import {
   sendPaymentConfirmation,
   sendTeacherPaymentNotification,
+  sendTeacherUnmatchedPaymentNotification,
   sendPostLessonPaymentReminder,
   sendStudentLessonReminder,
   sendTeacherLessonReminder,
@@ -13,6 +14,39 @@ import {
 import { logNotification } from "./bot/notification-log";
 import { formatAmount } from "./payment-offset";
 import { kyivNow, kyivToday } from "./time";
+
+/** How many lessons one prepayment may cover — the ceiling of the exact-sum grid. */
+const MAX_PREPAID_LESSONS = 24;
+
+/**
+ * Exact sums we are willing to auto-credit to a student, in kopecks (offset tail
+ * included).
+ *
+ * The kopeck tail only says *who* paid — it must not be enough on its own, or any
+ * unrelated transfer that happens to end in the student's tail lands on their
+ * balance. So the sum has to be one the student could actually owe: N individual
+ * plus M group lessons, or their exact current debt. Open payment requests are
+ * checked separately by the caller (it needs the request row to link it).
+ */
+async function expectedLessonSums(student: BillingStudent): Promise<Set<number>> {
+  const sums = new Set<number>();
+  const individual = student.lessonPrice;
+  const group = student.groupLessonPrice ?? student.lessonPrice;
+
+  for (let n = 0; n <= MAX_PREPAID_LESSONS; n++) {
+    for (let m = 0; n + m <= MAX_PREPAID_LESSONS; m++) {
+      if (n + m === 0) continue;
+      sums.add(n * individual + m * group + student.paymentOffset);
+    }
+  }
+
+  // Paying off the whole balance at once — the debt is offset-stripped, so the
+  // student still adds their tail on top.
+  const { debt } = await getStudentBalance(student);
+  if (debt > 0) sums.add(debt + student.paymentOffset);
+
+  return sums;
+}
 
 /**
  * Sum to ask for in a post-lesson reminder.
@@ -89,7 +123,15 @@ export async function pollPayments(teacherId: string): Promise<number> {
   // Pre-load all students for this teacher (for offset matching)
   const teacherStudents = await prisma.student.findMany({
     where: { teacherId },
-    select: { id: true, paymentOffset: true, telegramId: true, name: true, lessonPrice: true, groupLessonPrice: true },
+    select: {
+      id: true,
+      paymentOffset: true,
+      telegramId: true,
+      name: true,
+      lessonPrice: true,
+      groupLessonPrice: true,
+      balanceAdjustmentKopecks: true,
+    },
   });
 
   let matched = 0;
@@ -111,23 +153,43 @@ export async function pollPayments(teacherId: string): Promise<number> {
     const student = teacherStudents.find((s) => s.paymentOffset === offsetValue);
     if (!student) continue;
 
-    // Link to oldest open request for tracking (if any)
-    const openRequest = await prisma.paymentRequest.findFirst({
+    // The tail identifies the student; the sum decides whether we credit them.
+    // A request is only linked when the payment matches it exactly — otherwise
+    // an unrelated sum would silently close somebody's open request.
+    const openRequests = await prisma.paymentRequest.findMany({
       where: { studentId: student.id, fulfilledBy: null },
       orderBy: { createdAt: "asc" },
     });
+    const paidRequest = openRequests.find((r) => r.amountTotal === tx.amount) ?? null;
+    const credited = paidRequest !== null || (await expectedLessonSums(student)).has(tx.amount);
 
     await prisma.payment.create({
       data: {
         teacherId,
         studentId: student.id,
-        paymentRequestId: openRequest?.id ?? null,
+        paymentRequestId: paidRequest?.id ?? null,
         amountReceived: tx.amount,
         bankTxId: tx.id,
         matchedAt: tx.receivedAt,
         source: "bank",
+        // Unexpected sum → kept out of the balance, but still listed so the
+        // teacher can accept it manually ("відновити" on the payments page).
+        isIgnored: !credited,
+        notes: credited ? null : "Сума не збігається з очікуваною — не зараховано автоматично",
       },
     });
+
+    if (!credited) {
+      if (teacher.telegramChatId) {
+        await sendTeacherUnmatchedPaymentNotification(
+          teacher.telegramChatId,
+          tx.amount,
+          student.name
+        ).catch(() => null);
+      }
+      continue;
+    }
+
     matched++;
 
     if (student.telegramId) {

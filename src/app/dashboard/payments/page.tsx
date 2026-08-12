@@ -36,6 +36,8 @@ interface TxItem {
   confirmedAt: string;
   source: string;
   isIgnored: boolean;
+  /** Why the payment was not credited automatically, if it wasn't. */
+  notes?: string | null;
 }
 
 interface PaymentsData {
@@ -701,6 +703,7 @@ export default function PaymentsPage() {
                   <div key={tx.id} className={`px-4 py-3 flex items-center justify-between gap-3 ${tx.isIgnored ? "opacity-50" : ""}`}>
                     <div className="min-w-0">
                       <p className={`text-sm font-medium truncate ${tx.isIgnored ? "line-through text-muted-foreground" : ""}`}>{tx.studentName}</p>
+                      {tx.isIgnored && tx.notes && <p className="text-xs text-amber-600">{tx.notes}</p>}
                       <p className="text-xs text-muted-foreground tabular-nums">
                         {new Date(tx.confirmedAt).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </p>
@@ -738,6 +741,7 @@ export default function PaymentsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className={`font-medium ${tx.isIgnored ? "line-through text-muted-foreground" : ""}`}>{tx.studentName}</span>
+                          {tx.isIgnored && tx.notes && <p className="text-xs text-amber-600 mt-0.5">{tx.notes}</p>}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className={`font-semibold ${tx.isIgnored ? "text-muted-foreground" : "text-emerald-600"}`}>+{formatAmount(tx.amountReal)}</span>

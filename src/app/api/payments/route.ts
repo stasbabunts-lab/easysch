@@ -90,6 +90,7 @@ export async function GET() {
     confirmedAt: p.confirmedAt,
     source: p.source,
     isIgnored: p.isIgnored,
+    notes: p.notes,
   }));
 
   return NextResponse.json({ clients, transactions, bankConnected });
