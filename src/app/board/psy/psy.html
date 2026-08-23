@@ -62,7 +62,9 @@
   #stage { padding: 18px 14px 60px }
 
   .title {
-    width: 100%; max-width: 1080px; margin: 0 auto 14px;
+    /* display:block — an input is inline-block by default and `margin:auto`
+       would not centre it over the grid */
+    display: block; width: 100%; max-width: 1080px; margin: 0 auto 14px;
     background: transparent; border: 0; border-bottom: 1px dashed transparent;
     font-size: 22px; font-weight: 650; text-align: center; outline: none; padding: 4px 0;
   }
@@ -141,7 +143,7 @@
 </div>
 
 <div id="stage">
-  <input class="title" id="title" placeholder="Ситуация — за что распределяем ответственность?">
+  <input class="title" id="title" placeholder="Факторы">
 
   <div class="grid">
     <div class="card pieBox">
@@ -184,7 +186,7 @@
       segs: [
         { name: "Фактор 1", value: 40, locked: false },
         { name: "Фактор 2", value: 35, locked: false },
-        { name: "Я", value: 25, locked: false }
+        { name: "Фактор 3", value: 25, locked: false }
       ]
     };
   }
