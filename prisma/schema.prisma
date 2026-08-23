@@ -40,6 +40,7 @@ model Teacher {
   notificationLogs     NotificationLog[]
   subscriptionPayments SubscriptionPayment[]
   reminders            Reminder[]
+  dailyReminders       DailyReminder[]
 }
 
 // Personal Telegram reminder the teacher sets for themselves ("remind me of X
@@ -54,6 +55,22 @@ model Reminder {
   createdAt DateTime @default(now())
 
   @@index([sent, remindAt])
+}
+
+// Recurring daily reminder: one text delivered at every listed time, every day
+// ("Спорт" at 14:00, 18:00, 21:00). Same delivery path as Reminder — the 5-min
+// cron pushes it to teacher.telegramChatId.
+model DailyReminder {
+  id         String    @id @default(cuid())
+  teacherId  String
+  teacher    Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  text       String
+  times      String    // "14:00,18:00,21:00" — Kyiv wall-clock, sorted, unique
+  isActive   Boolean   @default(true)
+  lastSentAt DateTime? // Kyiv wall-clock stored as UTC — the slot last delivered
+  createdAt  DateTime  @default(now())
+
+  @@index([teacherId])
 }
 
 // Marketing campaign / referral link. Share easy-sch.com/r/<slug>; clicks are

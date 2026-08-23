@@ -109,6 +109,24 @@
   }
   .icon-btn:hover { color: var(--high); background: var(--line); }
   .rm-empty { font-size: 12px; color: var(--muted); text-align: center; padding: 8px; }
+
+  /* ---- ежедневные правила ---- */
+  .card + .card { margin-top: 14px; }
+  .dl-hint { margin-top: 7px; font-size: 11px; color: var(--muted); }
+  .dl-row { display: flex; gap: 8px; margin-top: 10px; }
+  .dl-row .btn { flex: 1; }
+  #dlCancel { flex: 0 0 auto; }
+  .dl-item { align-items: flex-start; }
+  .dl-item.editing { border-color: var(--accent); }
+  .dl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .dl-body .t { font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+  .dl-times { display: flex; flex-wrap: wrap; gap: 4px; }
+  .dl-time {
+    font-size: 11px; color: var(--accent); background: rgba(79,140,255,.12);
+    border-radius: 999px; padding: 2px 7px; font-variant-numeric: tabular-nums;
+  }
+  .dl-actions { display: flex; flex-shrink: 0; }
+  .dl-actions .icon-btn:first-child:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -147,6 +165,20 @@
     <div class="rm-err" id="err"></div>
 
     <div class="rm-list" id="list"></div>
+  </div>
+
+  <div class="card">
+    <div class="rm-header"><span>🔁 Ежедневно</span><span class="rm-soon" id="dlCount"></span></div>
+
+    <input class="rm-text" id="dlLine" placeholder="Спорт; 14:00; 18:00; 21:00" enterkeyhint="done">
+    <div class="dl-hint">Текст и время через «;» — придёт каждый день в каждое время</div>
+    <div class="dl-row">
+      <button class="btn primary" id="dlBtn">Ежедневно</button>
+      <button class="btn" id="dlCancel" style="display:none">Отмена</button>
+    </div>
+    <div class="rm-err" id="dlErr"></div>
+
+    <div class="rm-list" id="dlList"></div>
   </div>
 </div>
 
@@ -430,6 +462,119 @@ function renderList() {
   }
 }
 
+/* ============ ежедневные правила ============ */
+// Одна строка «Спорт; 14:00; 18:00» — разбирает сервер (/lib/daily-reminder.ts),
+// здесь только обратная сборка строки для редактирования.
+let daily = [];
+let dlEditId = null;
+const dlLine = () => $("#dlLine");
+const lineOf = (r) => [r.text, ...r.times].join("; ");
+
+async function dlLoad() {
+  try {
+    const r = await fetch("/api/daily-reminders", { cache: "no-store" });
+    if (!r.ok) return;
+    daily = await r.json();
+    dlRender();
+  } catch (e) {}
+}
+async function dlSubmit() {
+  const line = (dlLine().value || "").trim();
+  if (!line) { dlLine().focus(); return; }
+  const btn = $("#dlBtn");
+  btn.disabled = true;
+  $("#dlErr").textContent = "";
+  try {
+    const r = await fetch(dlEditId ? `/api/daily-reminders/${dlEditId}` : "/api/daily-reminders", {
+      method: dlEditId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ line }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      $("#dlErr").textContent = j.error || "Не удалось сохранить";
+      return;
+    }
+    const saved = await r.json();
+    if (dlEditId) daily = daily.map((x) => (x.id === saved.id ? saved : x));
+    else daily.push(saved);
+    dlStopEdit();
+    dlRender();
+  } catch (e) {
+    $("#dlErr").textContent = "Нет связи с сервером";
+  } finally {
+    btn.disabled = false;
+  }
+}
+function dlStartEdit(r) {
+  dlEditId = r.id;
+  dlLine().value = lineOf(r);
+  $("#dlBtn").textContent = "Сохранить";
+  $("#dlCancel").style.display = "";
+  $("#dlErr").textContent = "";
+  dlRender();
+  dlLine().focus();
+}
+function dlStopEdit() {
+  dlEditId = null;
+  dlLine().value = "";
+  $("#dlBtn").textContent = "Ежедневно";
+  $("#dlCancel").style.display = "none";
+}
+async function dlRemove(id) {
+  daily = daily.filter((x) => x.id !== id);
+  if (dlEditId === id) dlStopEdit();
+  dlRender();
+  try { await fetch(`/api/daily-reminders/${id}`, { method: "DELETE" }); } catch (e) {}
+}
+function dlRender() {
+  const list = $("#dlList");
+  list.innerHTML = "";
+  const total = daily.reduce((n, r) => n + r.times.length, 0);
+  $("#dlCount").textContent = total ? `${total} ${plural(total, "раз", "раза", "раз")} в день` : "";
+  if (!daily.length) {
+    const e = document.createElement("div");
+    e.className = "rm-empty";
+    e.textContent = "Пока нет ежедневных напоминаний";
+    list.append(e);
+    return;
+  }
+  for (const r of daily) {
+    const item = document.createElement("div");
+    item.className = "rm-item dl-item" + (r.id === dlEditId ? " editing" : "");
+
+    const body = document.createElement("div");
+    body.className = "dl-body";
+    const t = document.createElement("div");
+    t.className = "t"; t.textContent = r.text;
+    const times = document.createElement("div");
+    times.className = "dl-times";
+    for (const time of r.times) {
+      const chip = document.createElement("span");
+      chip.className = "dl-time"; chip.textContent = time;
+      times.append(chip);
+    }
+    body.append(t, times);
+    body.onclick = () => dlStartEdit(r);
+
+    const actions = document.createElement("div");
+    actions.className = "dl-actions";
+    const edit = document.createElement("button");
+    edit.className = "icon-btn"; edit.textContent = "✎"; edit.title = "Изменить";
+    edit.onclick = () => dlStartEdit(r);
+    const del = document.createElement("button");
+    del.className = "icon-btn"; del.textContent = "✕"; del.title = "Удалить";
+    del.onclick = () => dlRemove(r.id);
+    actions.append(edit, del);
+
+    item.append(body, actions);
+    list.append(item);
+  }
+}
+$("#dlBtn").onclick = dlSubmit;
+$("#dlCancel").onclick = dlStopEdit;
+dlLine().onkeydown = (e) => { if (e.key === "Enter") dlSubmit(); };
+
 /* ============ старт ============ */
 // По умолчанию — ближайшая четверть часа вперёд.
 function defaultMoment() {
@@ -447,7 +592,9 @@ $("#addBtn").onclick = add;
 $("#text").onkeydown = (e) => { if (e.key === "Enter") add(); };
 
 renderList();
+dlRender();
 load();
+dlLoad();
 setInterval(load, 60000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
@@ -461,6 +608,7 @@ document.addEventListener("visibilitychange", () => {
   }
   updateHead();
   load();
+  dlLoad();
 });
 </script>
 </body>
