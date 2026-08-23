@@ -113,6 +113,17 @@
   /* ---- ежедневные правила ---- */
   .card + .card { margin-top: 14px; }
   .dl-hint { margin-top: 7px; font-size: 11px; color: var(--muted); }
+
+  /* ряд быстрых вставок: не забирает фокус, клавиатура на телефоне не закрывается */
+  .key-row { display: flex; gap: 6px; margin-top: 8px; }
+  .key {
+    flex: 1; min-width: 44px; min-height: 42px; padding: 8px 0;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    font: inherit; font-size: 17px; border-radius: 9px; cursor: pointer; transition: .12s;
+  }
+  .key:hover { border-color: var(--accent); }
+  .key:active { border-color: var(--accent); color: var(--accent); background: var(--line); }
+  .key.wide { flex: 2.4; font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
   .dl-row { display: flex; gap: 8px; margin-top: 10px; }
   .dl-row .btn { flex: 1; }
   #dlCancel { flex: 0 0 auto; }
@@ -171,7 +182,12 @@
     <div class="rm-header"><span>🔁 Ежедневно</span><span class="rm-soon" id="dlCount"></span></div>
 
     <input class="rm-text" id="dlLine" placeholder="Спорт; 14:00; 18:00; 21:00" enterkeyhint="done">
-    <div class="dl-hint">Текст и время через «;» — придёт каждый день в каждое время</div>
+    <div class="key-row">
+      <button class="key" type="button" data-ins="; " title="Разделитель">;</button>
+      <button class="key" type="button" data-ins=":" title="Двоеточие">:</button>
+      <button class="key wide" type="button" id="dlAddTime" title="Добавить время с барабанов">+ 00:00</button>
+    </div>
+    <div class="dl-hint">Можно коротко: «Спорт; 14; 18:30; 21» — придёт каждый день в каждое время</div>
     <div class="dl-row">
       <button class="btn primary" id="dlBtn">Ежедневно</button>
       <button class="btn" id="dlCancel" style="display:none">Отмена</button>
@@ -321,6 +337,8 @@ const drumM = createDrum($("#drumM"), (v) => { sel.m = v; updateHead(); });
 function updateHead() {
   const d = selMoment();
   $("#bigTime").textContent = `${pad2(sel.h)}:${pad2(sel.m)}`;
+  // кнопка вставки времени в ежедневные правила ходит за барабанами
+  $("#dlAddTime").textContent = `+ ${pad2(sel.h)}:${pad2(sel.m)}`;
   $("#bigDow").textContent = WEEKDAYS[d.getDay()];
   $("#bigFull").textContent = `${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`;
   const rel = $("#rel");
@@ -571,6 +589,33 @@ function dlRender() {
     list.append(item);
   }
 }
+// Быстрые вставки. pointerdown + preventDefault — фокус остаётся в поле,
+// поэтому на телефоне клавиатура не схлопывается между нажатиями.
+function insertAtCursor(input, str) {
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  if (input.setRangeText) input.setRangeText(str, start, end, "end");
+  else input.value += str;
+  buzz();
+}
+function bindKey(el, produce) {
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const input = dlLine();
+    input.focus({ preventScroll: true });
+    insertAtCursor(input, produce(input));
+  });
+}
+for (const el of document.querySelectorAll(".key[data-ins]")) {
+  bindKey(el, () => el.dataset.ins);
+}
+// «+ HH:MM» — берёт время, выставленное на барабанах выше
+bindKey($("#dlAddTime"), (input) => {
+  const time = `${pad2(sel.h)}:${pad2(sel.m)}`;
+  const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+  return !before.trim() || /[;,]\s*$/.test(before) ? time : `; ${time}`;
+});
+
 $("#dlBtn").onclick = dlSubmit;
 $("#dlCancel").onclick = dlStopEdit;
 dlLine().onkeydown = (e) => { if (e.key === "Enter") dlSubmit(); };
