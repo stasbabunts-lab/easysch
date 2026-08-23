@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<title>Напоминания</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #1f232c;
+    --line: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8b93a3;
+    --accent: #4f8cff;
+    --high: #ff5d6c;
+    --radius: 12px;
+    --item-h: 40px;
+    --rows: 5;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font-size: 15px;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  .wrap {
+    max-width: 460px; margin: 0 auto;
+    padding: 16px 12px calc(24px + env(safe-area-inset-bottom));
+  }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+
+  .rm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 14px; font-weight: 600; }
+  .rm-soon { font-size: 11px; font-weight: 500; color: var(--muted); }
+
+  .rm-top { display: flex; align-items: center; gap: 12px; }
+  .rm-clock { font-size: 38px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+  .rm-when { flex: 1; line-height: 1.25; }
+  .rm-dow { font-size: 15px; font-weight: 600; text-transform: capitalize; }
+  .rm-full { font-size: 12px; color: var(--muted); }
+  .rm-rel { margin-top: 6px; font-size: 12px; color: var(--accent); }
+  .rm-rel.past { color: var(--high); }
+
+  /* ---- барабаны ---- */
+  .drums { display: flex; gap: 8px; margin-top: 12px; }
+  .drum-col { flex: 1 1 0; min-width: 0; }
+  .drum-col.wide { flex: 1.5 1 0; }
+  .drum-lbl { font-size: 11px; color: var(--muted); text-align: center; height: 22px; }
+  .lbl-btn {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+    font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+  }
+  .lbl-btn:hover, .lbl-btn.on { color: var(--accent); border-color: var(--accent); }
+
+  .drum { position: relative; height: calc(var(--item-h) * var(--rows)); touch-action: pan-y; }
+  .drum-band {
+    position: absolute; left: 0; right: 0; top: calc(var(--item-h) * 2); height: var(--item-h);
+    border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); pointer-events: none;
+  }
+  .drum-list {
+    position: relative; height: 100%; overflow-y: auto; overscroll-behavior: contain;
+    scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch;
+    padding: calc(var(--item-h) * 2) 0; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
+  }
+  .drum-list::-webkit-scrollbar { display: none; }
+  .drum-item {
+    height: var(--item-h); display: flex; align-items: center; justify-content: center;
+    scroll-snap-align: center; font-size: 21px; font-variant-numeric: tabular-nums;
+    cursor: pointer; user-select: none; white-space: nowrap; will-change: transform, opacity;
+  }
+  .drum-col.wide .drum-item { font-size: 15px; }
+  .drum-item.sel { color: var(--accent); font-weight: 700; }
+
+  /* ---- быстрые пресеты ---- */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+    font: inherit; font-size: 12px; padding: 6px 11px; border-radius: 999px; cursor: pointer; transition: .15s;
+  }
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---- ввод ---- */
+  .rm-text {
+    width: 100%; margin-top: 12px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 9px; padding: 11px; font-size: 16px; color: var(--text); font-family: inherit; outline: none;
+  }
+  .rm-text:focus { border-color: var(--accent); }
+  .btn {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    padding: 11px 15px; border-radius: var(--radius); cursor: pointer; font: inherit; font-size: 15px; transition: .15s;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:disabled { opacity: .6; cursor: default; }
+  .rm-add { width: 100%; margin-top: 10px; }
+  .rm-err { margin-top: 8px; font-size: 12px; color: var(--high); }
+
+  /* ---- список ---- */
+  .rm-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .rm-item {
+    display: flex; align-items: center; gap: 8px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px;
+  }
+  .rm-item .t { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rm-item .when { font-size: 12px; color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .icon-btn {
+    background: transparent; border: 0; color: var(--muted); cursor: pointer;
+    font-size: 17px; padding: 4px 6px; border-radius: 6px; flex-shrink: 0;
+  }
+  .icon-btn:hover { color: var(--high); background: var(--line); }
+  .rm-empty { font-size: 12px; color: var(--muted); text-align: center; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="rm-header"><span>🔔 Напоминания</span><span class="rm-soon">EasySchBot</span></div>
+
+    <div class="rm-top">
+      <div class="rm-clock" id="bigTime">--:--</div>
+      <div class="rm-when">
+        <div class="rm-dow" id="bigDow"></div>
+        <div class="rm-full" id="bigFull"></div>
+      </div>
+    </div>
+    <div class="rm-rel" id="rel"></div>
+
+    <div class="drums">
+      <div class="drum-col wide">
+        <div class="drum-lbl">Дата</div>
+        <div class="drum" id="drumDate"></div>
+      </div>
+      <div class="drum-col">
+        <div class="drum-lbl">Часы</div>
+        <div class="drum" id="drumH"></div>
+      </div>
+      <div class="drum-col">
+        <div class="drum-lbl"><button class="lbl-btn" id="minToggle" title="Точнее — шаг 1 минута">мин · 15</button></div>
+        <div class="drum" id="drumM"></div>
+      </div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <input class="rm-text" id="text" placeholder="О чём напомнить…" enterkeyhint="done">
+    <button class="btn primary rm-add" id="addBtn">Напомнить</button>
+    <div class="rm-err" id="err"></div>
+
+    <div class="rm-list" id="list"></div>
+  </div>
+</div>
+
+<script>
+/* ============ мелочи ============ */
+const $ = (s) => document.querySelector(s);
+const pad2 = (n) => String(n).padStart(2, "0");
+const WEEKDAYS = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
+const DOW_SHORT = ["вс","пн","вт","ср","чт","пт","сб"];
+const MONTHS_GEN = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const MONTH_SHORT = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
+const DAY_MS = 86400000;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const isoDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+function plural(n, one, few, many) {
+  const a = n % 10, b = n % 100;
+  if (a === 1 && b !== 11) return one;
+  if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return few;
+  return many;
+}
+function buzz() { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} }
+
+/* ============ барабан ============ */
+// Скролл-снап колонка: значения по 40px, центральное — выбранное.
+// Работает пальцем (нативная инерция), колесом мыши и кликом по значению.
+const ITEM_H = 40;
+
+function createDrum(host, onChange) {
+  const band = document.createElement("div");
+  band.className = "drum-band";
+  const list = document.createElement("div");
+  list.className = "drum-list";
+  host.append(band, list);
+
+  const d = { values: [], index: 0, settleTimer: 0, raf: 0 };
+
+  function paint() {
+    const center = list.scrollTop / ITEM_H;
+    const kids = list.children;
+    for (let i = 0; i < kids.length; i++) {
+      const dist = Math.min(Math.abs(i - center), 3);
+      const el = kids[i];
+      el.style.opacity = String(1 - dist * 0.27);
+      el.style.transform = `scale(${1 - dist * 0.07})`;
+      el.classList.toggle("sel", Math.round(center) === i);
+    }
+  }
+  function settle() {
+    const i = clamp(Math.round(list.scrollTop / ITEM_H), 0, d.values.length - 1);
+    paint();
+    if (i === d.index) return;
+    d.index = i;
+    buzz();
+    onChange(d.values[i].value);
+  }
+  list.addEventListener("scroll", () => {
+    if (!d.raf) d.raf = requestAnimationFrame(() => { d.raf = 0; paint(); });
+    clearTimeout(d.settleTimer);
+    d.settleTimer = setTimeout(settle, 110);
+  }, { passive: true });
+
+  // колесо мыши: один щелчок — одно значение (иначе снап перелетает)
+  let wheelLock = 0;
+  list.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const now = Date.now();
+    if (now - wheelLock < 90) return;
+    wheelLock = now;
+    const dir = e.deltaY > 0 ? 1 : e.deltaY < 0 ? -1 : 0;
+    if (!dir) return;
+    const next = clamp(d.index + dir, 0, d.values.length - 1);
+    if (next === d.index) return;
+    api.scrollTo(next, true);
+    buzz();
+    onChange(d.values[next].value);
+  }, { passive: false });
+
+  const api = {
+    // values: [{ value, label }]
+    render(values, index) {
+      d.values = values;
+      list.innerHTML = "";
+      values.forEach((v, i) => {
+        const it = document.createElement("div");
+        it.className = "drum-item";
+        it.textContent = v.label;
+        it.onclick = () => {
+          if (i === d.index) return;
+          api.scrollTo(i, true);
+          onChange(v.value);
+        };
+        list.append(it);
+      });
+      api.scrollTo(clamp(index, 0, values.length - 1), false);
+    },
+    // Только позиционирует барабан; модель меняют вызывающие через onChange.
+    scrollTo(i, smooth) {
+      d.index = i;
+      list.scrollTo({ top: i * ITEM_H, behavior: smooth ? "smooth" : "auto" });
+      requestAnimationFrame(paint);
+    },
+    setValue(value, smooth) {
+      const i = d.values.findIndex((v) => v.value === value);
+      if (i >= 0 && i !== d.index) api.scrollTo(i, smooth);
+    },
+  };
+  return api;
+}
+
+/* ============ состояние ============ */
+const DAYS_AHEAD = 365;
+let today = midnight(new Date());
+let sel = { dayIdx: 0, h: 9, m: 0 };
+let minuteStep = 15;
+
+const dateValues = () => {
+  const out = [];
+  for (let i = 0; i <= DAYS_AHEAD; i++) {
+    const d = new Date(today.getTime() + i * DAY_MS);
+    const label = i === 0 ? "сегодня" : i === 1 ? "завтра"
+      : `${DOW_SHORT[d.getDay()]}, ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+    out.push({ value: i, label });
+  }
+  return out;
+};
+const hourValues = () => Array.from({ length: 24 }, (_, h) => ({ value: h, label: pad2(h) }));
+const minuteValues = () => {
+  const out = [];
+  for (let m = 0; m < 60; m += minuteStep) out.push({ value: m, label: pad2(m) });
+  return out;
+};
+const selDate = () => new Date(today.getTime() + sel.dayIdx * DAY_MS);
+const selMoment = () => { const d = selDate(); d.setHours(sel.h, sel.m, 0, 0); return d; };
+
+const drumDate = createDrum($("#drumDate"), (v) => { sel.dayIdx = v; updateHead(); });
+const drumH = createDrum($("#drumH"), (v) => { sel.h = v; updateHead(); });
+const drumM = createDrum($("#drumM"), (v) => { sel.m = v; updateHead(); });
+
+function updateHead() {
+  const d = selMoment();
+  $("#bigTime").textContent = `${pad2(sel.h)}:${pad2(sel.m)}`;
+  $("#bigDow").textContent = WEEKDAYS[d.getDay()];
+  $("#bigFull").textContent = `${d.getDate()} ${MONTHS_GEN[d.getMonth()]} ${d.getFullYear()}`;
+  const rel = $("#rel");
+  const diff = Math.round((d.getTime() - Date.now()) / 60000);
+  rel.classList.toggle("past", diff < 0);
+  if (diff < 0) {
+    rel.textContent = "время уже прошло — придёт сразу";
+  } else if (diff < 1) {
+    rel.textContent = "меньше чем через минуту";
+  } else if (diff < 60) {
+    rel.textContent = `через ${diff} ${plural(diff, "минуту", "минуты", "минут")}`;
+  } else if (diff < 1440) {
+    const h = Math.floor(diff / 60), m = diff % 60;
+    rel.textContent = `через ${h} ${plural(h, "час", "часа", "часов")}${m ? ` ${m} мин` : ""}`;
+  } else {
+    const days = Math.round(diff / 1440);
+    rel.textContent = `через ${days} ${plural(days, "день", "дня", "дней")}`;
+  }
+}
+
+// Ставит дату и время целиком. Если минуты не попадают в текущий шаг —
+// включает точный режим, чтобы не врать округлением.
+function setMoment(d, smooth) {
+  sel.dayIdx = clamp(Math.round((midnight(d).getTime() - today.getTime()) / DAY_MS), 0, DAYS_AHEAD);
+  sel.h = d.getHours();
+  sel.m = d.getMinutes();
+  if (sel.m % minuteStep !== 0) setMinuteStep(1, false);
+  drumDate.setValue(sel.dayIdx, smooth);
+  drumH.setValue(sel.h, smooth);
+  drumM.setValue(sel.m, smooth);
+  updateHead();
+}
+// keepValue=false — значение минут уже выставлено вызывающим, не округлять.
+function setMinuteStep(step, keepValue) {
+  minuteStep = step;
+  const btn = $("#minToggle");
+  btn.textContent = `мин · ${step}`;
+  btn.classList.toggle("on", step === 1);
+  if (keepValue !== false && step !== 1) sel.m = (Math.round(sel.m / step) * step) % 60;
+  const vals = minuteValues();
+  drumM.render(vals, Math.max(0, vals.findIndex((v) => v.value === sel.m)));
+}
+$("#minToggle").onclick = () => { setMinuteStep(minuteStep === 15 ? 1 : 15, true); updateHead(); };
+
+/* ============ быстрые пресеты ============ */
+// секунды обнуляем — иначе «через 15 мин» показывает «через 14 минут»
+const inMinutes = (n) => { const d = new Date(Date.now() + n * 60000); d.setSeconds(0, 0); return d; };
+const PRESETS = [
+  ["через 15 мин", () => inMinutes(15)],
+  ["через час", () => inMinutes(60)],
+  ["сегодня 20:00", () => { const d = new Date(); d.setHours(20, 0, 0, 0); return d; }],
+  ["завтра 09:00", () => { const d = new Date(Date.now() + DAY_MS); d.setHours(9, 0, 0, 0); return d; }],
+];
+for (const [label, make] of PRESETS) {
+  const b = document.createElement("button");
+  b.className = "chip";
+  b.textContent = label;
+  b.onclick = () => setMoment(make(), true);
+  $("#chips").append(b);
+}
+
+/* ============ сервер ============ */
+// remindAt — киевское настенное время, хранится как UTC: читаем UTC-поля как есть.
+let items = [];
+const mapItem = (r) => ({
+  id: r.id, text: r.text,
+  date: r.remindAt.slice(0, 10),
+  h: +r.remindAt.slice(11, 13),
+  m: +r.remindAt.slice(14, 16),
+});
+
+async function load() {
+  try {
+    const r = await fetch("/api/reminders", { cache: "no-store" });
+    if (!r.ok) return;
+    items = (await r.json()).map(mapItem);
+    renderList();
+  } catch (e) {}
+}
+async function add() {
+  const btn = $("#addBtn");
+  const text = ($("#text").value || "").trim();
+  if (!text) { $("#text").focus(); return; }
+  btn.disabled = true;
+  $("#err").textContent = "";
+  try {
+    const r = await fetch("/api/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: isoDate(selDate()), time: `${pad2(sel.h)}:${pad2(sel.m)}`, text }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      $("#err").textContent = j.error || "Не удалось сохранить";
+      return;
+    }
+    items.push(mapItem(await r.json()));
+    $("#text").value = "";
+    renderList();
+    btn.textContent = "Готово ✓";
+    setTimeout(() => { btn.textContent = "Напомнить"; }, 1200);
+  } catch (e) {
+    $("#err").textContent = "Нет связи с сервером";
+  } finally {
+    btn.disabled = false;
+  }
+}
+async function remove(id) {
+  items = items.filter((x) => x.id !== id);
+  renderList();
+  try { await fetch(`/api/reminders/${id}`, { method: "DELETE" }); } catch (e) {}
+}
+function renderList() {
+  const list = $("#list");
+  list.innerHTML = "";
+  if (!items.length) {
+    const e = document.createElement("div");
+    e.className = "rm-empty";
+    e.textContent = "Пока нет напоминаний";
+    list.append(e);
+    return;
+  }
+  const key = (r) => r.date + pad2(r.h) + pad2(r.m);
+  const todayIso = isoDate(new Date());
+  for (const r of [...items].sort((a, b) => key(a).localeCompare(key(b)))) {
+    const [, mm, dd] = r.date.split("-").map(Number);
+    const item = document.createElement("div");
+    item.className = "rm-item";
+    const t = document.createElement("div");
+    t.className = "t"; t.textContent = r.text;
+    const when = document.createElement("div");
+    when.className = "when";
+    when.textContent = `${pad2(r.h)}:${pad2(r.m)} · ${r.date === todayIso ? "сегодня" : `${dd} ${MONTH_SHORT[mm - 1]}`}`;
+    const del = document.createElement("button");
+    del.className = "icon-btn"; del.textContent = "✕"; del.title = "Удалить";
+    del.onclick = () => remove(r.id);
+    item.append(t, when, del);
+    list.append(item);
+  }
+}
+
+/* ============ старт ============ */
+// По умолчанию — ближайшая четверть часа вперёд.
+function defaultMoment() {
+  const d = new Date(Date.now() + 60000);
+  d.setSeconds(0, 0);
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15);
+  return d;
+}
+drumDate.render(dateValues(), 0);
+drumH.render(hourValues(), 9);
+setMinuteStep(15, false);
+setMoment(defaultMoment(), false);
+
+$("#addBtn").onclick = add;
+$("#text").onkeydown = (e) => { if (e.key === "Enter") add(); };
+
+renderList();
+load();
+setInterval(load, 60000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  // сутки могли смениться, пока вкладка висела в фоне
+  const t = midnight(new Date());
+  if (t.getTime() !== today.getTime()) {
+    const keep = selMoment();
+    today = t;
+    drumDate.render(dateValues(), 0);
+    setMoment(keep.getTime() < t.getTime() ? defaultMoment() : keep, false);
+  }
+  updateHead();
+  load();
+});
+</script>
+</body>
+</html>
