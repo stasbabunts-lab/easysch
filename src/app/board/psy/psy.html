@@ -1,0 +1,650 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Пирог</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #1f232c;
+    --line: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8b93a3;
+    --accent: #4f8cff;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  }
+  [data-theme="light"] {
+    --bg: #f4f6fa;
+    --panel: #ffffff;
+    --panel-2: #f0f3f8;
+    --line: #dde3ec;
+    --text: #131720;
+    --muted: #667085;
+    --accent: #2f6fe4;
+    --shadow: 0 10px 30px rgba(20, 30, 60, .10);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  /* zoomed-in content may be wider than the screen — let it be panned, not clipped */
+  body { overflow-x: auto; }
+  input, button { font: inherit; color: inherit; }
+
+  /* ---------- toolbar (never scaled, always reachable) ---------- */
+  .bar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar .sp { flex: 1 }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-width: 36px; height: 34px; padding: 0 12px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent) }
+  .btn:active { transform: translateY(1px) }
+  .btn.icon { padding: 0; width: 36px }
+  .zoom { display: flex; align-items: center; gap: 6px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px }
+  .zoom .btn { height: 28px; border: 0; background: transparent }
+  .zoom .btn:hover { background: var(--panel); border: 0 }
+  .zval { min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); cursor: pointer }
+
+  /* ---------- scaled area ---------- */
+  /* CSS zoom (not transform): it takes part in layout, so the page reflows and
+     scrolls exactly as with browser zoom — no height bookkeeping needed. */
+  #stage { padding: 18px 14px 60px }
+
+  .title {
+    width: 100%; max-width: 1080px; margin: 0 auto 14px;
+    background: transparent; border: 0; border-bottom: 1px dashed transparent;
+    font-size: 22px; font-weight: 650; text-align: center; outline: none; padding: 4px 0;
+  }
+  .title:hover { border-bottom-color: var(--line) }
+  .title:focus { border-bottom-color: var(--accent) }
+  .title::placeholder { color: var(--muted); font-weight: 500 }
+
+  .grid {
+    display: grid; grid-template-columns: minmax(320px, 1fr) minmax(300px, 420px);
+    gap: 18px; align-items: start; max-width: 1080px; margin: 0 auto;
+  }
+  body.narrow .grid { grid-template-columns: 1fr }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow) }
+  .pieBox { padding: 10px }
+  #pie { display: block; width: 100%; height: auto; touch-action: none }
+
+  .seg { cursor: ns-resize; transition: transform .12s ease, opacity .12s ease }
+  .seg.dim { opacity: .5 }
+  .lbl { pointer-events: none; font-weight: 700; fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.38); stroke-width: 3px; stroke-linejoin: round }
+  .lbl.out { fill: var(--text); stroke: none }
+  .lblName { font-size: 13px; font-weight: 600 }
+  .lblPct { font-size: 20px }
+  .handle { cursor: grab; fill: var(--panel); stroke: var(--muted); stroke-width: 1.5 }
+  .handle:hover, .handle.on { stroke: var(--accent); stroke-width: 2.5 }
+  .hint { text-align: center; color: var(--muted); font-size: 13px; padding: 2px 8px 10px }
+
+  /* ---------- legend ---------- */
+  .side { padding: 12px }
+  .sideHead { display: flex; align-items: baseline; gap: 8px; margin: 2px 4px 10px }
+  .sideHead h2 { margin: 0; font-size: 15px; font-weight: 650 }
+  .sum { margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums }
+  .row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 11px; border: 1px solid transparent;
+  }
+  .row:hover, .row.hot { background: var(--panel-2); border-color: var(--line) }
+  .dot { width: 14px; height: 14px; border-radius: 5px; flex: 0 0 auto }
+  .nm {
+    /* a narrow base width keeps the row from forcing the card wider than a phone */
+    flex: 1 1 auto; width: 60px; min-width: 0; background: transparent; border: 0;
+    border-bottom: 1px solid transparent; padding: 3px 2px; outline: none;
+  }
+  .nm:hover { border-bottom-color: var(--line) }
+  .nm:focus { border-bottom-color: var(--accent) }
+  .nm::placeholder { color: var(--muted) }
+  .pct { display: flex; align-items: center; gap: 2px; flex: 0 0 auto }
+  .pct .st { width: 22px; height: 26px; border: 0; background: transparent; color: var(--muted); border-radius: 7px; cursor: pointer; font-size: 16px; line-height: 1 }
+  .pct .st:hover { background: var(--line); color: var(--text) }
+  .pv {
+    width: 46px; height: 28px; text-align: right; padding: 0 4px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    outline: none; font-variant-numeric: tabular-nums;
+  }
+  .pv:focus { border-color: var(--accent) }
+  .pc { color: var(--muted); font-size: 13px; width: 12px }
+  .mini { width: 26px; height: 26px; border: 0; background: transparent; color: var(--muted); border-radius: 7px; cursor: pointer; flex: 0 0 auto }
+  .mini:hover { background: var(--line); color: var(--text) }
+  .mini.on { color: var(--accent) }
+  .addRow { display: flex; gap: 8px; margin: 10px 4px 2px }
+  .addRow .btn { flex: 1 }
+  .locked .nm { color: var(--muted) }
+</style>
+
+<div class="bar">
+  <div class="zoom">
+    <button class="btn icon" id="zOut" title="Меньше (−)">−</button>
+    <div class="zval" id="zVal" title="Сбросить масштаб (0)">100%</div>
+    <button class="btn icon" id="zIn" title="Больше (+)">+</button>
+  </div>
+  <button class="btn icon" id="full" title="Во весь экран (F)">⛶</button>
+  <button class="btn icon" id="theme" title="Светлая / тёмная тема">◐</button>
+  <div class="sp"></div>
+  <button class="btn" id="equal" title="Разделить поровну">Поровну</button>
+  <button class="btn" id="reset" title="Очистить и начать заново">Новый</button>
+</div>
+
+<div id="stage">
+  <input class="title" id="title" placeholder="Ситуация — за что распределяем ответственность?">
+
+  <div class="grid">
+    <div class="card pieBox">
+      <svg id="pie" viewBox="0 0 400 400" aria-label="Диаграмма"></svg>
+      <div class="hint">Колесо мыши над сектором — менять процент · тянуть за точку на границе — двигать её</div>
+    </div>
+
+    <div class="card side">
+      <div class="sideHead">
+        <h2>Факторы</h2>
+        <div class="sum" id="sum">100%</div>
+      </div>
+      <div id="rows"></div>
+      <div class="addRow">
+        <button class="btn" id="add">+ Фактор</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PALETTE = ["#4f8cff", "#ff5d6c", "#f7b955", "#46c98b", "#a98bff",
+                 "#26c6da", "#ff8a5c", "#c9d24b", "#ec6ec7", "#7f8c9b"];
+  var KEY = "psy-pie-v1";
+  var CX = 200, CY = 200, R = 150;
+
+  var $ = function (s) { return document.querySelector(s); };
+  var svg = $("#pie"), rowsBox = $("#rows"), stage = $("#stage");
+  var titleEl = $("#title");
+
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+  // ---------- state ----------
+  function fresh() {
+    return {
+      title: "",
+      segs: [
+        { name: "Фактор 1", value: 40, locked: false },
+        { name: "Фактор 2", value: 35, locked: false },
+        { name: "Я", value: 25, locked: false }
+      ]
+    };
+  }
+  var state = fresh();
+  var zoom = 1, theme = "dark", hot = -1;
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        title: state.title, segs: state.segs, zoom: zoom, theme: theme
+      }));
+    } catch (e) { /* private mode — the tool still works, just without persistence */ }
+  }
+  function load() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+    if (!raw) return;
+    try {
+      var d = JSON.parse(raw);
+      if (d && Array.isArray(d.segs) && d.segs.length) {
+        state.title = typeof d.title === "string" ? d.title : "";
+        state.segs = d.segs.map(function (s) {
+          return {
+            name: String(s.name == null ? "" : s.name),
+            value: clamp(Number(s.value) || 0, 0, 100),
+            locked: !!s.locked
+          };
+        });
+        normalize();
+      }
+      if (d && d.zoom) zoom = clamp(Number(d.zoom) || 1, 0.6, 3);
+      if (d && d.theme) theme = d.theme === "light" ? "light" : "dark";
+    } catch (e) { /* corrupted blob — fall back to the default pie */ }
+  }
+
+  function total() {
+    return state.segs.reduce(function (s, x) { return s + x.value; }, 0);
+  }
+  function color(i) { return PALETTE[i % PALETTE.length]; }
+
+  // ---------- the numbers ----------
+  // Values are kept as floats summing to exactly 100 and only *shown* as whole
+  // percents. That keeps redistribution truly proportional (integers-only would
+  // shave the biggest neighbour first) and makes every change reversible: scroll
+  // a slice up and back down and the others land on their original numbers.
+  function normalize() {
+    var t = total();
+    if (!(t > 0)) { state.segs.forEach(function (s, i) { s.value = i ? 0 : 100; }); return; }
+    if (Math.abs(t - 100) < 1e-9) return;
+    var k = 100 / t;
+    state.segs.forEach(function (s) { s.value = s.value * k; });
+  }
+
+  // Whole percents for display: floors plus the leftover handed to the biggest
+  // fractions, so the labels always add up to exactly 100.
+  function shown() {
+    var raw = state.segs.map(function (s) { return s.value; });
+    var out = raw.map(Math.floor);
+    var rest = 100 - out.reduce(function (a, b) { return a + b; }, 0);
+    rest = clamp(Math.round(rest), 0, raw.length);
+    var order = raw.map(function (v, i) { return [v - Math.floor(v), i]; })
+      .sort(function (a, b) { return (b[0] - a[0]) || (a[1] - b[1]); });
+    for (var k = 0; k < rest; k++) out[order[k][1]]++;
+    return out;
+  }
+
+  function movable(except) {
+    var out = [];
+    for (var i = 0; i < state.segs.length; i++) {
+      if (i !== except && !state.segs[i].locked) out.push(i);
+    }
+    return out;
+  }
+
+  // Set one segment to `v`; the other unlocked segments are rescaled to fill the
+  // remainder, keeping their proportions to each other. Locked ones never move.
+  function setValue(i, v) {
+    var segs = state.segs;
+    if (segs[i].locked) return;
+    var others = movable(i);
+    if (!others.length) return;
+    var lockedSum = 0;
+    for (var k = 0; k < segs.length; k++) if (k !== i && segs[k].locked) lockedSum += segs[k].value;
+    var room = 100 - lockedSum;                       // what i and the others share
+    if (room <= 0) return;
+    v = clamp(v, 0, room);
+    var pool = others.reduce(function (s, o) { return s + segs[o].value; }, 0);
+    var rest = room - v;
+    if (pool > 1e-9) {
+      var f = rest / pool;
+      others.forEach(function (o) { segs[o].value = segs[o].value * f; });
+    } else {
+      others.forEach(function (o) { segs[o].value = rest / others.length; });
+    }
+    segs[i].value = v;
+    normalize();
+    render();
+    save();
+  }
+
+  // ---------- geometry ----------
+  function starts() {
+    var acc = 0, out = [];
+    for (var i = 0; i < state.segs.length; i++) { out.push(acc); acc += state.segs[i].value; }
+    return out;
+  }
+  function pt(pct, r) {
+    var a = (pct / 100) * Math.PI * 2 - Math.PI / 2;
+    return [CX + r * Math.cos(a), CY + r * Math.sin(a)];
+  }
+  function arc(p0, p1, r) {
+    var a = pt(p0, r), b = pt(p1, r);
+    var large = (p1 - p0) > 50 ? 1 : 0;
+    return "M" + CX + "," + CY + " L" + a[0].toFixed(2) + "," + a[1].toFixed(2) +
+           " A" + r + "," + r + " 0 " + large + " 1 " + b[0].toFixed(2) + "," + b[1].toFixed(2) + " Z";
+  }
+  function el(name, attrs, cls) {
+    var n = document.createElementNS("http://www.w3.org/2000/svg", name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (cls) n.setAttribute("class", cls);
+    return n;
+  }
+
+  // ---------- render ----------
+  function renderPie() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var st = starts(), segs = state.segs, d = shown();
+    var live = segs.filter(function (s) { return s.value > 0.0001; }).length;
+
+    // a lone segment covers the whole circle, which no arc can express
+    if (live === 1) {
+      var i0 = 0;
+      segs.forEach(function (s, i) { if (s.value > 0.0001) i0 = i; });
+      var c = el("circle", { cx: CX, cy: CY, r: R, fill: color(i0) }, "seg");
+      c.dataset.i = i0;
+      svg.appendChild(c);
+    } else {
+      segs.forEach(function (s, i) {
+        if (s.value <= 0.0001) return;
+        var p = el("path", { d: arc(st[i], st[i] + s.value, R), fill: color(i) }, "seg");
+        p.dataset.i = i;
+        if (hot >= 0 && hot !== i) p.classList.add("dim");
+        if (hot === i) {
+          var mid = st[i] + s.value / 2, m = pt(mid, 8);
+          p.setAttribute("transform", "translate(" + (m[0] - CX).toFixed(2) + "," + (m[1] - CY).toFixed(2) + ")");
+        }
+        svg.appendChild(p);
+      });
+    }
+
+    // percent labels (thin slices get theirs outside, without the name)
+    segs.forEach(function (s, i) {
+      if (d[i] <= 0) return;
+      var mid = st[i] + s.value / 2;
+      var inside = s.value >= 7;
+      var withName = inside && s.value >= 9 && (s.name || "").trim();
+      var p = pt(mid, inside ? R * 0.62 : R * 1.13);
+      var g = el("g", {}, "lbl" + (inside ? "" : " out"));
+      if (withName) {
+        var nm = el("text", { x: p[0].toFixed(1), y: (p[1] - 11).toFixed(1), "text-anchor": "middle" }, "lblName");
+        nm.textContent = (s.name || "").trim().slice(0, 18);
+        g.appendChild(nm);
+      }
+      var tx = el("text", {
+        x: p[0].toFixed(1),
+        y: (p[1] + (withName ? 10 : 6)).toFixed(1),
+        "text-anchor": "middle"
+      }, "lblPct");
+      tx.textContent = d[i] + "%";
+      if (!inside) tx.setAttribute("font-size", "14");
+      g.appendChild(tx);
+      svg.appendChild(g);
+
+      // a name wider than the slice would run over its neighbours — the legend
+      // still carries it, so drop it here and keep the percent centred
+      if (withName) {
+        var chord = 2 * (R * 0.62) * Math.sin(Math.PI * s.value / 100);
+        if (nm.getComputedTextLength() > chord * 0.95) {
+          g.removeChild(nm);
+          tx.setAttribute("y", (p[1] + 6).toFixed(1));
+        }
+      }
+    });
+
+    // draggable boundaries between neighbours (skipped when either side is locked)
+    if (live > 1) {
+      for (var k = 0; k < segs.length - 1; k++) {
+        if (segs[k].locked || segs[k + 1].locked) continue;
+        if (segs[k].value + segs[k + 1].value <= 0.0001) continue;
+        var b = st[k] + segs[k].value, q = pt(b, R + 1);
+        var h = el("circle", { cx: q[0].toFixed(2), cy: q[1].toFixed(2), r: 7 }, "handle");
+        h.dataset.b = k;
+        svg.appendChild(h);
+      }
+    }
+  }
+
+  function buildRows() {
+    rowsBox.innerHTML = "";
+    state.segs.forEach(function (s, i) {
+      var row = document.createElement("div");
+      row.className = "row" + (s.locked ? " locked" : "");
+      row.dataset.i = i;
+      row.innerHTML =
+        '<span class="dot" style="background:' + color(i) + '"></span>' +
+        '<input class="nm" placeholder="Название">' +
+        '<div class="pct">' +
+          '<button class="st" data-d="-1" title="−1%">−</button>' +
+          '<input class="pv" inputmode="numeric">' +
+          '<span class="pc">%</span>' +
+          '<button class="st" data-d="1" title="+1%">+</button>' +
+        '</div>' +
+        '<button class="mini lk' + (s.locked ? " on" : "") + '" title="Зафиксировать процент">' + (s.locked ? "🔒" : "🔓") + '</button>' +
+        '<button class="mini rm" title="Удалить">✕</button>';
+      row.querySelector(".nm").value = s.name || "";
+      rowsBox.appendChild(row);
+    });
+    syncRows();
+  }
+
+  function syncRows() {
+    var rows = rowsBox.children, d = shown(), sum = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var pv = rows[i].querySelector(".pv");
+      if (document.activeElement !== pv) pv.value = d[i];
+      rows[i].classList.toggle("hot", hot === i);
+      sum += d[i];
+    }
+    $("#sum").textContent = sum + "%";
+  }
+
+  function render() { renderPie(); syncRows(); }
+
+  // ---------- zoom ----------
+  function applyZoom() {
+    stage.style.zoom = String(zoom);
+    $("#zVal").textContent = Math.round(zoom * 100) + "%";
+    // media queries see the unzoomed viewport, so the column switch is done here
+    document.body.classList.toggle("narrow", window.innerWidth / zoom < 760);
+  }
+  function setZoom(z) { zoom = clamp(Math.round(z * 10) / 10, 0.6, 3); applyZoom(); save(); }
+
+  function applyTheme() { document.documentElement.setAttribute("data-theme", theme); }
+
+  // ---------- pie interaction ----------
+  // Hit-testing goes through the angle, not the DOM: the hovered slice pops out,
+  // and hit-testing the moved shape would make hover flicker near the centre.
+  function xyAt(e) {
+    var r = svg.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width * 400, (e.clientY - r.top) / r.height * 400];
+  }
+  function segAt(e) {
+    var q = xyAt(e);
+    var d = Math.sqrt((q[0] - CX) * (q[0] - CX) + (q[1] - CY) * (q[1] - CY));
+    if (d > R + 12 || d < 7) return -1;
+    var p = pctAt(e), st = starts();
+    for (var i = 0; i < state.segs.length; i++) {
+      if (state.segs[i].value > 0 && p >= st[i] && p < st[i] + state.segs[i].value) return i;
+    }
+    return -1;
+  }
+
+  svg.addEventListener("wheel", function (e) {
+    if (e.ctrlKey) return;                // ctrl+wheel is page zoom, not a slice edit
+    var i = segAt(e);
+    if (i < 0) return;                    // outside the pie — let the page scroll
+    e.preventDefault();
+    var step = e.shiftKey ? 5 : 1;
+    // step from the number the user sees, so one click is always exactly ±1%
+    setValue(i, shown()[i] + (e.deltaY < 0 ? step : -step));
+  }, { passive: false });
+
+  svg.addEventListener("mousemove", function (e) {
+    if (drag !== null) return;
+    var i = segAt(e);
+    if (i !== hot) { hot = i; render(); }
+  });
+  svg.addEventListener("mouseleave", function () {
+    if (drag !== null) return;
+    if (hot !== -1) { hot = -1; render(); }
+  });
+
+  var drag = null;
+  function pctAt(e) {
+    var r = svg.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width * 400;
+    var y = (e.clientY - r.top) / r.height * 400;
+    var a = Math.atan2(y - CY, x - CX) * 180 / Math.PI + 90;
+    a = ((a % 360) + 360) % 360;
+    return a / 360 * 100;
+  }
+  svg.addEventListener("pointerdown", function (e) {
+    var h = e.target.closest ? e.target.closest(".handle") : null;
+    if (!h) return;
+    e.preventDefault();
+    drag = Number(h.dataset.b);
+    h.classList.add("on");
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener("pointermove", function (e) {
+    if (drag === null) return;
+    var k = drag, st = starts();
+    var span = state.segs[k].value + state.segs[k + 1].value;
+    var before = st[k], cur = before + state.segs[k].value;
+    var p = pctAt(e);
+    while (p - cur > 50) p -= 100;      // pick the representative nearest the handle
+    while (cur - p > 50) p += 100;
+    var v = clamp(Math.round(p - before), 0, span);   // snap the boundary to whole percents
+    if (Math.abs(v - state.segs[k].value) < 1e-9) return;
+    state.segs[k].value = v;
+    state.segs[k + 1].value = span - v;
+    render();
+  });
+  function endDrag(e) {
+    if (drag === null) return;
+    drag = null;
+    if (e && e.pointerId != null && svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+    render();
+    save();
+  }
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+
+  // ---------- legend interaction ----------
+  rowsBox.addEventListener("input", function (e) {
+    var row = e.target.closest(".row");
+    if (!row) return;
+    var i = Number(row.dataset.i);
+    if (e.target.classList.contains("nm")) {
+      state.segs[i].name = e.target.value;
+      renderPie();
+      save();
+    }
+  });
+  function commitPv(row) {
+    var i = Number(row.dataset.i);
+    var pv = row.querySelector(".pv");
+    var v = parseInt(String(pv.value).replace(/[^\d-]/g, ""), 10);
+    if (isNaN(v)) { pv.value = state.segs[i].value; return; }
+    setValue(i, v);
+    pv.value = state.segs[i].value;
+  }
+  rowsBox.addEventListener("change", function (e) {
+    if (e.target.classList.contains("pv")) commitPv(e.target.closest(".row"));
+  });
+  rowsBox.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    if (e.target.classList.contains("pv")) { commitPv(e.target.closest(".row")); e.target.blur(); }
+    if (e.target.classList.contains("nm")) e.target.blur();
+  });
+  rowsBox.addEventListener("click", function (e) {
+    var row = e.target.closest(".row");
+    if (!row) return;
+    var i = Number(row.dataset.i);
+    if (e.target.classList.contains("st")) {
+      setValue(i, shown()[i] + Number(e.target.dataset.d));
+      syncRows();
+    } else if (e.target.classList.contains("lk")) {
+      state.segs[i].locked = !state.segs[i].locked;
+      buildRows(); render(); save();
+    } else if (e.target.classList.contains("rm")) {
+      if (state.segs.length <= 1) return;
+      var freed = state.segs[i].value;
+      state.segs.splice(i, 1);
+      // the freed share goes to the unlocked segments, keeping their proportions
+      var idxs = movable(-1);
+      var pool = idxs.reduce(function (s, o) { return s + state.segs[o].value; }, 0);
+      if (freed > 0 && idxs.length && pool > 1e-9) {
+        var f = (pool + freed) / pool;
+        idxs.forEach(function (o) { state.segs[o].value = state.segs[o].value * f; });
+      }
+      normalize();
+      hot = -1;
+      buildRows(); render(); save();
+    }
+  });
+  rowsBox.addEventListener("mouseover", function (e) {
+    var row = e.target.closest(".row");
+    if (!row || drag !== null) return;
+    var i = Number(row.dataset.i);
+    if (i !== hot) { hot = i; render(); }
+  });
+  rowsBox.addEventListener("mouseleave", function () {
+    if (drag !== null) return;
+    if (hot !== -1) { hot = -1; render(); }
+  });
+  rowsBox.addEventListener("wheel", function (e) {
+    var box = e.target.closest ? e.target.closest(".pct") : null;
+    if (!box || e.ctrlKey) return;
+    e.preventDefault();
+    var i = Number(box.closest(".row").dataset.i);
+    var step = e.shiftKey ? 5 : 1;
+    setValue(i, shown()[i] + (e.deltaY < 0 ? step : -step));
+    syncRows();
+  }, { passive: false });
+
+  $("#add").addEventListener("click", function () {
+    if (state.segs.length >= 10) return;
+    state.segs.push({ name: "", value: 0, locked: false });
+    var i = state.segs.length - 1;
+    buildRows();
+    setValue(i, Math.max(1, Math.round(100 / state.segs.length / 2)));
+    render();
+    var last = rowsBox.lastElementChild;
+    if (last) last.querySelector(".nm").focus();
+    save();
+  });
+
+  $("#equal").addEventListener("click", function () {
+    var n = state.segs.length;
+    var base = Math.floor(100 / n), rest = 100 - base * n;
+    state.segs.forEach(function (s, i) { s.value = base + (i < rest ? 1 : 0); s.locked = false; });
+    buildRows(); render(); save();
+  });
+
+  $("#reset").addEventListener("click", function () {
+    if (!confirm("Очистить диаграмму и начать заново?")) return;
+    state = fresh();
+    titleEl.value = "";
+    buildRows(); render(); save();
+  });
+
+  titleEl.addEventListener("input", function () { state.title = titleEl.value; save(); });
+
+  $("#zIn").addEventListener("click", function () { setZoom(zoom + 0.1); });
+  $("#zOut").addEventListener("click", function () { setZoom(zoom - 0.1); });
+  $("#zVal").addEventListener("click", function () { setZoom(1); });
+  $("#theme").addEventListener("click", function () {
+    theme = theme === "dark" ? "light" : "dark";
+    applyTheme(); save();
+  });
+  $("#full").addEventListener("click", function () {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(function () {});
+  });
+
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if (e.key === "+" || e.key === "=") { setZoom(zoom + 0.1); e.preventDefault(); }
+    else if (e.key === "-" || e.key === "_") { setZoom(zoom - 0.1); e.preventDefault(); }
+    else if (e.key === "0") { setZoom(1); e.preventDefault(); }
+    else if (e.key === "f" || e.key === "F" || e.key === "а" || e.key === "А") { $("#full").click(); }
+  });
+
+  // Ctrl+wheel anywhere outside the pie zooms the page content
+  document.addEventListener("wheel", function (e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    setZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1));
+  }, { passive: false });
+
+  window.addEventListener("resize", applyZoom);
+
+  // ---------- boot ----------
+  load();
+  titleEl.value = state.title || "";
+  applyTheme();
+  applyZoom();
+  buildRows();
+  render();
+})();
+</script>
