@@ -145,25 +145,6 @@ export async function sendTeacherPaymentNotification(
   );
 }
 
-/**
- * The kopeck tail points at a student, but the sum is not one we expect from
- * them — the payment is saved unaccounted, so the teacher has to decide.
- */
-export async function sendTeacherUnmatchedPaymentNotification(
-  chatId: string,
-  amountKopecks: number,
-  studentName: string
-) {
-  await sendTelegramMessage(
-    chatId,
-    `⚠️ <b>Платіж не зараховано</b>\n\n` +
-      `👤 Схоже на: ${studentName}\n` +
-      `💵 ${formatAmount(amountKopecks)}\n\n` +
-      `Сума не збігається ні із запитом на оплату, ні з вартістю занять. ` +
-      `Платіж є у списку транзакцій на сторінці «Оплати» — кнопка «відновити» зарахує його.`
-  );
-}
-
 // Legacy alias for compatibility
 export async function sendLessonReminder(
   telegramId: string,

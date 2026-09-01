@@ -6,7 +6,6 @@ import { getStudentBalance, type BillingStudent } from "./balance";
 import {
   sendPaymentConfirmation,
   sendTeacherPaymentNotification,
-  sendTeacherUnmatchedPaymentNotification,
   sendPostLessonPaymentReminder,
   sendStudentLessonReminder,
   sendTeacherLessonReminder,
@@ -189,16 +188,8 @@ export async function pollPayments(teacherId: string): Promise<number> {
       },
     });
 
-    if (!credited) {
-      if (teacher.telegramChatId) {
-        await sendTeacherUnmatchedPaymentNotification(
-          teacher.telegramChatId,
-          tx.amount,
-          student.name
-        ).catch(() => null);
-      }
-      continue;
-    }
+    // Unexpected sum — saved but silently ignored: no notification to anyone.
+    if (!credited) continue;
 
     matched++;
 
