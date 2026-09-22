@@ -15,6 +15,8 @@ function escapeHtml(s: string): string {
 // failure here never affects the rest of the cron run.
 export async function dispatchDueReminders(): Promise<number> {
   const now = kyivNow();
+  const personalBotToken =
+    process.env.PERSONAL_REMINDERS_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 
   const due = await prisma.reminder.findMany({
     where: { sent: false, remindAt: { lte: now } },
@@ -29,7 +31,8 @@ export async function dispatchDueReminders(): Promise<number> {
 
     await sendTelegramMessage(
       r.teacher.telegramChatId,
-      `🔔 <b>Нагадування</b>\n\n${escapeHtml(r.text)}`
+      `🔔 <b>Нагадування</b>\n\n${escapeHtml(r.text)}`,
+      personalBotToken
     ).catch(() => null);
 
     await prisma.reminder.update({ where: { id: r.id }, data: { sent: true } });
@@ -51,6 +54,8 @@ const DAILY_GRACE_MS = 30 * 60 * 1000;
 export async function dispatchDailyReminders(): Promise<number> {
   const now = kyivNow();
   const today = now.toISOString().slice(0, 10);
+  const personalBotToken =
+    process.env.PERSONAL_REMINDERS_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 
   const rules = await prisma.dailyReminder.findMany({
     where: { isActive: true },
@@ -76,7 +81,8 @@ export async function dispatchDailyReminders(): Promise<number> {
     if (toSend) {
       await sendTelegramMessage(
         rule.teacher.telegramChatId,
-        `🔔 <b>Нагадування</b>\n\n${escapeHtml(rule.text)}`
+        `🔔 <b>Нагадування</b>\n\n${escapeHtml(rule.text)}`,
+        personalBotToken
       ).catch(() => null);
       sent++;
     }

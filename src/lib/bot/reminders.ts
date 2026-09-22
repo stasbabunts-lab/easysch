@@ -1,8 +1,8 @@
 import { formatAmount } from "@/lib/payment-offset";
 import { resolveLessonNoun, adj, cap } from "@/lib/lesson-noun";
 
-export async function sendTelegramMessage(chatId: string, text: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+export async function sendTelegramMessage(chatId: string, text: string, botToken?: string) {
+  const token = botToken || process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
