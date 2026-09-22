@@ -15,12 +15,10 @@ function escapeHtml(s: string): string {
 // failure here never affects the rest of the cron run.
 export async function dispatchDueReminders(): Promise<number> {
   const now = kyivNow();
-  const personalBotToken =
-    process.env.PERSONAL_REMINDERS_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 
   const due = await prisma.reminder.findMany({
     where: { sent: false, remindAt: { lte: now } },
-    include: { teacher: { select: { telegramChatId: true } } },
+    include: { teacher: { select: { telegramChatId: true, email: true } } },
     orderBy: { remindAt: "asc" },
   });
 
@@ -29,10 +27,15 @@ export async function dispatchDueReminders(): Promise<number> {
     // No linked Telegram yet — leave it pending so it delivers once they connect.
     if (!r.teacher.telegramChatId) continue;
 
+    const botToken =
+      (r.teacher.email === process.env.ADMIN_EMAIL && process.env.PERSONAL_REMINDERS_BOT_TOKEN)
+        ? process.env.PERSONAL_REMINDERS_BOT_TOKEN
+        : process.env.TELEGRAM_BOT_TOKEN;
+
     await sendTelegramMessage(
       r.teacher.telegramChatId,
       `🔔 <b>Нагадування</b>\n\n${escapeHtml(r.text)}`,
-      personalBotToken
+      botToken
     ).catch(() => null);
 
     await prisma.reminder.update({ where: { id: r.id }, data: { sent: true } });
@@ -54,12 +57,10 @@ const DAILY_GRACE_MS = 30 * 60 * 1000;
 export async function dispatchDailyReminders(): Promise<number> {
   const now = kyivNow();
   const today = now.toISOString().slice(0, 10);
-  const personalBotToken =
-    process.env.PERSONAL_REMINDERS_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 
   const rules = await prisma.dailyReminder.findMany({
     where: { isActive: true },
-    include: { teacher: { select: { telegramChatId: true } } },
+    include: { teacher: { select: { telegramChatId: true, email: true } } },
   });
 
   let sent = 0;
@@ -79,10 +80,15 @@ export async function dispatchDailyReminders(): Promise<number> {
     if (!latestDue) continue;
 
     if (toSend) {
+      const botToken =
+        (rule.teacher.email === process.env.ADMIN_EMAIL && process.env.PERSONAL_REMINDERS_BOT_TOKEN)
+          ? process.env.PERSONAL_REMINDERS_BOT_TOKEN
+          : process.env.TELEGRAM_BOT_TOKEN;
+
       await sendTelegramMessage(
         rule.teacher.telegramChatId,
         `🔔 <b>Нагадування</b>\n\n${escapeHtml(rule.text)}`,
-        personalBotToken
+        botToken
       ).catch(() => null);
       sent++;
     }
