@@ -146,42 +146,172 @@ def parse_datetime_spec(spec: str, base_dt: datetime = None) -> datetime:
     return target_dt
 
 
+DOW_CANONICAL = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"]
+
+
+def parse_single_day(s: str):
+    norm = s.strip().lower().replace("'", "").replace("’", "")
+    if re.match(r'^(пн|пон|понедельник|понеділок|mon|monday)$', norm):
+        return 1
+    if re.match(r'^(вт|вто|вторник|вівторок|tue|tues|tuesday)$', norm):
+        return 2
+    if re.match(r'^(ср|сре|среда|середа|wed|wednesday)$', norm):
+        return 3
+    if re.match(r'^(чт|чет|четверг|четвер|thu|thur|thurs|thursday)$', norm):
+        return 4
+    if re.match(r'^(пт|пят|пятница|пятниця|fri|friday)$', norm):
+        return 5
+    if re.match(r'^(сб|суб|суббота|субота|sat|saturday)$', norm):
+        return 6
+    if re.match(r'^(вс|вос|воскресенье|нд|нед|неділя|недиля|sun|sunday)$', norm):
+        return 0
+    return None
+
+
+def parse_days_spec(s: str):
+    clean = re.sub(r'^(?:в|во)\s+', '', s.strip().lower())
+    if not clean:
+        return None
+    m_range = re.match(r'^([a-zа-яё]+)\s*[-–—]\s*([a-zа-яё]+)$', clean)
+    if m_range:
+        d1 = parse_single_day(m_range.group(1))
+        d2 = parse_single_day(m_range.group(2))
+        if d1 is not None and d2 is not None:
+            res = []
+            cur = d1
+            while True:
+                res.append(cur)
+                if cur == d2:
+                    break
+                cur = (cur + 1) % 7
+            return res
+        return None
+    parts = [p for p in re.split(r'[,/ ]+', clean) if p]
+    if not parts:
+        return None
+    res = []
+    for p in parts:
+        d = parse_single_day(p)
+        if d is None:
+            return None
+        if d not in res:
+            res.append(d)
+    return res if res else None
+
+
+def to_time_str(h: int, m: int):
+    if 0 <= h <= 23 and 0 <= m <= 59:
+        return f"{h:02d}:{m:02d}"
+    return None
+
+
+def parse_time_token(tok: str):
+    t = tok.strip()
+    if re.match(r'^\d{3,4}$', t):
+        h = int(t[:-2])
+        m = int(t[-2:])
+        return to_time_str(h, m)
+    m = re.match(r'^(\d{1,2})[:.\-]?(\d{2})?$', t)
+    if not m:
+        return None
+    h = int(m.group(1))
+    m_min = int(m.group(2)) if m.group(2) is not None else 0
+    return to_time_str(h, m_min)
+
+
+def parse_slot_token(tok: str):
+    t = tok.strip()
+    plain = parse_time_token(t)
+    if plain:
+        return [plain]
+    m = re.match(r'^(.*?)(?:[:.\-\s]*|\s+)(\d{3,4}|\d{1,2}(?:[:.\-]\d{2})?|\d{1,2})$', t, re.IGNORECASE)
+    if m:
+        day_str = m.group(1)
+        time_str = m.group(2)
+        tm = parse_time_token(time_str)
+        if tm:
+            days = parse_days_spec(day_str)
+            if days:
+                return [f"{DOW_CANONICAL[d]} {tm}" for d in days]
+    return None
+
+
+def sort_slots(slots):
+    def slot_rank(s):
+        parts = s.strip().split()
+        if len(parts) == 1:
+            return (0, parts[0])
+        d_idx = DOW_CANONICAL.index(parts[0]) if parts[0] in DOW_CANONICAL else 8
+        dow = 7 if d_idx == 0 else d_idx
+        return (dow, parts[1])
+    return sorted(list(set(slots)), key=slot_rank)
+
+
 def parse_daily_line(line: str):
     """
-    Parses 'Спорт; 14:00; 18:00' or 'Спорт 14:00 18:00'.
+    Parses 'Спорт; 14:00; 18:00', 'Спорт; пн14; ср18:00' or 'Спорт пн14'.
     """
-    tokens = [t.strip() for t in re.split(r'[;,\n]', line) if t.strip()]
+    tokens = [t.strip() for t in re.split(r'[;\n]', line) if t.strip()]
     times = []
     text_parts = []
 
-    time_token_re = re.compile(r'^(\d{1,2})[:.\-]?(\d{2})?$')
     for tok in tokens:
-        m = time_token_re.match(tok)
-        if m:
-            h = int(m.group(1))
-            m_min = int(m.group(2)) if m.group(2) is not None else 0
-            if 0 <= h <= 23 and 0 <= m_min <= 59:
-                times.append(f"{h:02d}:{m_min:02d}")
-                continue
-        text_parts.append(tok)
+        slots = parse_slot_token(tok)
+        if slots:
+            times.extend(slots)
+        else:
+            text_parts.append(tok)
 
-    text = ", ".join(text_parts)
-    # Check for inline HH:MM in text
-    inline_re = re.compile(r'\b(\d{1,2})[:.](\d{2})\b')
-    for m in inline_re.finditer(text):
+    text = "; ".join(text_parts)
+
+    # Inline attached day+time, e.g. "пн14", "вт15:30"
+    def repl_attached(m):
+        day_part, time_part = m.group(1), m.group(2)
+        tm = parse_time_token(time_part)
+        if not tm:
+            return m.group(0)
+        days = parse_days_spec(day_part)
+        if not days:
+            return m.group(0)
+        for d in days:
+            times.append(f"{DOW_CANONICAL[d]} {tm}")
+        return " "
+
+    text = re.sub(r'(?:^|\s+)([a-zа-яё]+)(\d{1,2}(?:[:.]\d{2})?|\d{3,4})(?=[^\wа-яё]|$)', repl_attached, text, flags=re.IGNORECASE)
+
+    # Inline day with space + time, e.g. "пн 14:00", "в пн 14:00"
+    def repl_spaced(m):
+        day_part, time_part = m.group(1), m.group(2)
+        tm = parse_time_token(time_part)
+        if not tm:
+            return m.group(0)
+        days = parse_days_spec(day_part)
+        if not days:
+            return m.group(0)
+        for d in days:
+            times.append(f"{DOW_CANONICAL[d]} {tm}")
+        return " "
+
+    text = re.sub(r'(?:^|\s+)(?:(?:в|во)\s+)?([a-zа-яё]+(?:(?:\s*,\s*|\s*[-–—]\s*)[a-zа-яё]+)*)\s+(\d{1,2}[:.]\d{2}|\b\d{1,2}\b)(?=[^\wа-яё]|$)', repl_spaced, text, flags=re.IGNORECASE)
+
+    # Inline plain HH:MM
+    def repl_plain(m):
         h = int(m.group(1))
         m_min = int(m.group(2))
-        if 0 <= h <= 23 and 0 <= m_min <= 59:
-            times.append(f"{h:02d}:{m_min:02d}")
+        tm = to_time_str(h, m_min)
+        if tm:
+            times.append(tm)
+            return " "
+        return m.group(0)
 
-    text = inline_re.sub(" ", text)
+    text = re.sub(r'(?:^|\s+)(\d{1,2})[:.](\d{2})(?=[^\wа-яё]|$)', repl_plain, text)
     text = re.sub(r'\s+', ' ', text).strip(" .,;–-")
 
-    unique_times = sorted(list(set(times)))
+    unique_times = sort_slots(times)
     if not text:
         raise ValueError("Не указан текст напоминания")
     if not unique_times:
-        raise ValueError("Не указано время напоминания (например: 14:00)")
+        raise ValueError("Не указано время напоминания (например: 14:00 или пн14)")
 
     return text[:300], ",".join(unique_times)
 

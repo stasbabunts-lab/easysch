@@ -117,13 +117,15 @@
   /* ряд быстрых вставок: не забирает фокус, клавиатура на телефоне не закрывается */
   .key-row { display: flex; gap: 6px; margin-top: 8px; }
   .key {
-    flex: 1; min-width: 44px; min-height: 42px; padding: 8px 0;
+    flex: 1; min-width: 0; min-height: 42px; padding: 8px 0;
     border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
     font: inherit; font-size: 17px; border-radius: 9px; cursor: pointer; transition: .12s;
   }
   .key:hover { border-color: var(--accent); }
   .key:active { border-color: var(--accent); color: var(--accent); background: var(--line); }
   .key.wide { flex: 2.4; font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .key.key-dow { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .key.key-dow:hover, .key.key-dow:active { color: var(--accent); }
   .dl-row { display: flex; gap: 8px; margin-top: 10px; }
   .dl-row .btn { flex: 1; }
   #dlCancel { flex: 0 0 auto; }
@@ -181,13 +183,22 @@
   <div class="card">
     <div class="rm-header"><span>🔁 Ежедневно</span><span class="rm-soon" id="dlCount"></span></div>
 
-    <input class="rm-text" id="dlLine" placeholder="Спорт; 14:00; 18:00; 21:00" enterkeyhint="done">
+    <input class="rm-text" id="dlLine" placeholder="Спорт; пн 14:00; ср 18:00; 21:00" enterkeyhint="done">
+    <div class="key-row">
+      <button class="key key-dow" type="button" data-dow="пн" title="Понедельник">пн</button>
+      <button class="key key-dow" type="button" data-dow="вт" title="Вторник">вт</button>
+      <button class="key key-dow" type="button" data-dow="ср" title="Среда">ср</button>
+      <button class="key key-dow" type="button" data-dow="чт" title="Четверг">чт</button>
+      <button class="key key-dow" type="button" data-dow="пт" title="Пятница">пт</button>
+      <button class="key key-dow" type="button" data-dow="сб" title="Суббота">сб</button>
+      <button class="key key-dow" type="button" data-dow="вс" title="Воскресенье">вс</button>
+    </div>
     <div class="key-row">
       <button class="key" type="button" data-ins="; " title="Разделитель">;</button>
       <button class="key" type="button" data-ins=":" title="Двоеточие">:</button>
       <button class="key wide" type="button" id="dlAddTime" title="Добавить время с барабанов">+ 00:00</button>
     </div>
-    <div class="dl-hint">Можно коротко: «Спорт; 14; 18:30; 21» — придёт каждый день в каждое время</div>
+    <div class="dl-hint">«Спорт; пн14; ср18:30» — напомнит в эти дни недели, а без дня («14; 21») — каждый день</div>
     <div class="dl-row">
       <button class="btn primary" id="dlBtn">Ежедневно</button>
       <button class="btn" id="dlCancel" style="display:none">Отмена</button>
@@ -549,11 +560,16 @@ function dlRender() {
   const list = $("#dlList");
   list.innerHTML = "";
   const total = daily.reduce((n, r) => n + r.times.length, 0);
-  $("#dlCount").textContent = total ? `${total} ${plural(total, "раз", "раза", "раз")} в день` : "";
+  const hasDow = daily.some((r) => r.times.some((t) => /\s/.test(t)));
+  $("#dlCount").textContent = total
+    ? (hasDow
+        ? `${total} ${plural(total, "напоминание", "напоминания", "напоминаний")}`
+        : `${total} ${plural(total, "раз", "раза", "раз")} в день`)
+    : "";
   if (!daily.length) {
     const e = document.createElement("div");
     e.className = "rm-empty";
-    e.textContent = "Пока нет ежедневных напоминаний";
+    e.textContent = "Пока нет регулярных напоминаний";
     list.append(e);
     return;
   }
@@ -609,11 +625,25 @@ function bindKey(el, produce) {
 for (const el of document.querySelectorAll(".key[data-ins]")) {
   bindKey(el, () => el.dataset.ins);
 }
+for (const el of document.querySelectorAll(".key-dow")) {
+  bindKey(el, (input) => {
+    const dow = el.dataset.dow;
+    const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+    if (!before.trim() || /[;,]\s*$/.test(before) || /[,\s]+$/.test(before)) {
+      return `${dow} `;
+    }
+    return `; ${dow} `;
+  });
+}
 // «+ HH:MM» — берёт время, выставленное на барабанах выше
 bindKey($("#dlAddTime"), (input) => {
   const time = `${pad2(sel.h)}:${pad2(sel.m)}`;
   const before = input.value.slice(0, input.selectionStart ?? input.value.length);
-  return !before.trim() || /[;,]\s*$/.test(before) ? time : `; ${time}`;
+  if (!before.trim() || /[;,]\s*$/.test(before)) return time;
+  if (/(?:пн|вт|ср|чт|пт|сб|вс|mon|tue|wed|thu|fri|sat|sun)\s*$/i.test(before)) {
+    return /\s$/.test(before) ? time : ` ${time}`;
+  }
+  return `; ${time}`;
 });
 
 $("#dlBtn").onclick = dlSubmit;

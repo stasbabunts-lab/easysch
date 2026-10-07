@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { sendTelegramMessage } from "./bot/reminders";
-import { splitTimes } from "./daily-reminder";
+import { splitTimes, getSlotTimeForDay } from "./daily-reminder";
 import { kyivNow } from "./time";
 
 // Escape the few chars Telegram's HTML parse_mode treats as markup, so free-text
@@ -50,13 +50,15 @@ export async function dispatchDueReminders(): Promise<number> {
 // fired hours late (but it is still marked, so it never fires again).
 const DAILY_GRACE_MS = 30 * 60 * 1000;
 
-// Deliver recurring daily reminders. Each rule holds one text and several Kyiv
-// wall-clock times; `lastSentAt` is the slot last handled, so every slot fires
-// once a day. At most one message per rule per cron run — if several slots came
-// due at once (downtime), only the freshest is worth sending.
+// Deliver recurring daily / weekly reminders. Each rule holds one text and several
+// Kyiv wall-clock times (either daily "14:00" or day-specific "пн 14:00");
+// `lastSentAt` is the slot last handled, so every slot fires once per recurrence.
+// At most one message per rule per cron run — if several slots came due at once
+// (downtime), only the freshest is worth sending.
 export async function dispatchDailyReminders(): Promise<number> {
   const now = kyivNow();
   const today = now.toISOString().slice(0, 10);
+  const currentDow = now.getUTCDay();
 
   const rules = await prisma.dailyReminder.findMany({
     where: { isActive: true },
@@ -68,11 +70,19 @@ export async function dispatchDailyReminders(): Promise<number> {
     // No linked Telegram yet — leave the rule untouched so it starts once they connect.
     if (!rule.teacher.telegramChatId) continue;
 
-    let latestDue: Date | null = null;
-    let toSend: Date | null = null;
-    for (const time of splitTimes(rule.times)) {
+    const todaySlots: Date[] = [];
+    for (const slot of splitTimes(rule.times)) {
+      const time = getSlotTimeForDay(slot, currentDow);
+      if (!time) continue;
       const at = new Date(`${today}T${time}:00Z`);
       if (isNaN(at.getTime()) || at > now) continue;
+      todaySlots.push(at);
+    }
+    todaySlots.sort((a, b) => a.getTime() - b.getTime());
+
+    let latestDue: Date | null = null;
+    let toSend: Date | null = null;
+    for (const at of todaySlots) {
       latestDue = at;
       if (rule.lastSentAt && at <= rule.lastSentAt) continue;
       if (now.getTime() - at.getTime() <= DAILY_GRACE_MS) toSend = at;
